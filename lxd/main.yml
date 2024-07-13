@@ -1,0 +1,9 @@
+---
+- name: LXD Playbook
+  hosts: lxd_servers
+  become: true
+  tasks:
+    - name: Install LXD
+      community.general.snap:
+        name:
+          - lxd

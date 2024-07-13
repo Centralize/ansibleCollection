@@ -1,0 +1,2 @@
+[lxd_servers]
+wsl2 ansible_host=localhost

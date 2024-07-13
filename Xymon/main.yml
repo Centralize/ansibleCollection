@@ -1,0 +1,30 @@
+---
+- name: Install and configure Xymon Server
+  hosts: xymon_servers
+  become: true
+  tasks:
+    - name: Install prerequisites
+      ansible.builtin.apt:
+        pkg:
+        - apache2
+        - rrdtool
+        - librrd-dev
+        - libpcre3-dev
+        - libssl-dev
+        - ldap-utils
+        - libldap2-dev
+        - fping
+        update_cache: yes
+        state: latest
+    - name: Install Xymon-Server
+      ansible.builtin.apt:
+        name: "xymon"
+        update_cache: yes
+        state: latest
+    - name: Install Xymon-Client
+      ansible.builtin.apt:
+        pkg:
+          - xymon-client
+          - hobbit-plugins
+        update_cache: yes
+        state: latest

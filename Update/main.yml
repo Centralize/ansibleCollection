@@ -1,0 +1,10 @@
+---
+- name: Update packages
+  hosts: all
+  become: true
+  tasks:
+    - name: Update cache and Upgrade all packages
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
