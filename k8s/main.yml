@@ -1,0 +1,35 @@
+---
+- name: Setup K8s
+  hosts: k8s
+  become: true
+  tasks:
+  - name: Setup Docker
+    ansible.builtin.apt:
+      name: docker.io
+      update_cache: yes
+      state: latest
+  - name: Enable docker service
+    ansible.builtin.service:
+      name: docker
+      enabled: yes
+      state: started
+  - name: Add Kubernetes repository key
+    ansible.builtin.get_url:
+      url: https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key
+      dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  - name: Add Kubernetes repository
+    ansible.builtin.apt_repository:
+      repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /"
+      state: present
+  - name: Install Kubernetes tools (kubeadm)
+    ansible.builtin.apt:
+      name: kubeadm
+      state: latest
+  - name: Install Kubernetes tools (kubelet)
+    ansible.builtin.apt:
+      name: kubelet
+      state: latest
+  - name: Install Kubernetes tools (kubectl)
+    ansible.builtin.apt:
+      name: kubectl
+      state: latest

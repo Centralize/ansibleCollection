@@ -1,0 +1,30 @@
+---
+- name: Setup and configure GitLab CE
+  hosts: gitservers
+  become: true
+  tasks:
+  - name: Install curl
+    ansible.builtin.apt:
+      name: curl
+      state: latest
+  - name: Install OpenSSH Server
+    ansible.builtin.apt:
+      name: openssh-server
+      state: latest
+  - name: Install CA-Certificates
+    ansible.builtin.apt:
+      name: ca-certificates
+      state: latest
+  - name: Install TimeZone Data
+    ansible.builtin.apt:
+      name: tzdata
+      state: latest
+  - name: Install Perl
+    ansible.builtin.apt:
+      name: perl
+      state: latest
+  - name: Install postfix
+    ansible.builtin.apt:
+      name: postfix
+      state: latest
+
