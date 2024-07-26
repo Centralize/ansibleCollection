@@ -1,0 +1,25 @@
+---
+- name: Install K9s
+  hosts: k8s
+  become: true
+  tasks:
+    - name: Install snapd
+      ansible.builtin.apt:
+        name: snapd
+        state: latest
+    - name: Make sure snapd runs
+      ansible.builtin.service:
+        name: snapd
+        state: started
+        enabled: yes
+    - name: Install K9s using snap
+      community.general.snap:
+        name: k9s
+        state: present
+    - name: Create symlink to sbin
+      ansible.builtin.file:
+        src: /snap/k9s/current/bin/k9s
+        dest: /usr/sbin/k9s
+        owner: root
+        group: root
+        state: link
