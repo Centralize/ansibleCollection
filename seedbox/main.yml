@@ -1,0 +1,11 @@
+---
+- name: Setup a rtorrent/rutorrent seedbox on Ubuntu 22.04 or newer
+  hosts: seedboxes
+  become: true
+  tasks:
+    - name: Update everything including cache.
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+
