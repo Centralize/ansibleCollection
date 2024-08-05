@@ -1,0 +1,37 @@
+---
+- name: Setup a rtorrent/rutorrent seedbox on Ubuntu 22.04 or newer
+  hosts: seedboxes
+  become: true
+  tasks:
+    - name: Update everything including cache.
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+    - name: Install requirements
+      ansible.builtin.apt:
+        pkg:
+        - subversion
+        - build-essential
+        - automake
+        - libtool
+        - libcppunit-dev
+        - libcur13-dev
+        - libsigc++-2.0-dev
+        - unzip
+        - unrar-free
+        - curl
+        - libncurses-dev
+    - name: Install Apache 2.x and PHP
+      ansible.builtin.apt:
+        pkg:
+        - apache2
+        - php8.1
+        - php8.1-cli
+        - php8.1-curl
+        - libapache2-mod-scgi
+    - name: Enable Apache mod SCGI
+      ansible.builtin.file:
+        src: /etc/apache2/mods-available/scgi.load
+        dest: /etc/apache2/mods-enabled/scgi.load
+        state: link

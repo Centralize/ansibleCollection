@@ -1,0 +1,14 @@
+---
+- name: Install and configure Apache 2.x
+  hosts: lamp
+  become: true
+  tasks:
+    - name: Install prerequisites
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+    - name: Install Apache 2.x
+      ansible.builtin.apt:
+        name: "apache2"
+        state: latest
