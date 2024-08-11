@@ -8,3 +8,16 @@
         name: "*"
         update_cache: yes
         state: latest
+    - name: Install basic tools
+      ansible.builtin.apt:
+        pkg:
+          - mc
+          - vim
+          - snapd
+          - flatpak
+          - unzip
+          - unrar-free
+          - wget
+          - curl
+          - net-tools
+          - whois

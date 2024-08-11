@@ -1,0 +1,24 @@
+---
+- name: Create and maintain A records on Cloudflare DNS
+  hosts: mycraft
+  become: true
+  tasks:
+    - name: Set root record
+      community.general.cloudflare_dns:
+        zone: mycraft.dk
+        type: A
+        value: 46.32.147.92
+        ttl: 60
+        account_email: mkaas@openlab.dk
+        account_api_key: placeholder
+        state: present
+    - name: Create mail.mycraft.dk
+      community.general.cloudflare_dns:
+        zone: mycraft.dk
+        type: A
+        record: mail
+        value: 46.32.147.92
+        ttl: 600
+        account_email: mkaas@openlab.dk
+        account_api_key: placeholder
+        state: present

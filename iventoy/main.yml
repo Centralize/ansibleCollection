@@ -1,0 +1,28 @@
+---
+- name: Deploy iVentoy to host
+  hosts: iventoy
+  become: true
+  tasks:
+  - name: Copy release file to host
+    ansible.builtin.copy:
+      src: ./iventoy-1.0.20-linux-free.tar.gz
+      dest: /opt/iventoy-1.0.20-linux-free.tar.gz
+      owner: root
+      group: root
+      mode: '0644'
+  - name: Unpack remote file
+    ansible.builtin.unarchive:
+      src: /opt/iventoy-1.0.20-linux-free.tar.gz
+      dest: /opt
+      remote_src: yes
+  - name: Symlink
+    ansible.builtin.file:
+      src: /opt/iventoy-1.0.20
+      dest: /opt/iventoy
+      owner: root
+      group: root
+      state: link
+  - name: Clean up archive
+    ansible.builtin.file:
+      path: /opt/iventoy-1.0.20-linux-free.tar.gz
+      state: absent

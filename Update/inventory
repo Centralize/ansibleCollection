@@ -1,2 +1,2 @@
-[xymon_servers]
-xymon01 ansible_host=192.168.66.147
+[newserver]
+newserver ansible_host=192.168.67.236

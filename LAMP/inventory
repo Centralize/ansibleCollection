@@ -1,4 +1,4 @@
 [lamp]
-web01 ansible_host=192.168.66.132
-web02 ansible_host=192.168.66.131
-web03 ansible_host=192.168.66.130
+web01 ansible_host=192.168.67.247
+web02 ansible_host=192.168.67.249
+web03 ansible_host=192.168.67.246

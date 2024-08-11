@@ -1,0 +1,62 @@
+---
+- name: Setup and configure a PXE Server
+  hosts: pxe
+  become: true
+  tasks:
+    - name: Update everything
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+    - name: Install Essential tools
+      ansible.builtin.apt:
+        pkg:
+          - net-tools
+          - mc
+          - unzip
+          - unrar-free
+          - htop
+    - name: Install TFTP Server
+      ansible.builtin.apt:
+        pkg:
+          - tftpd-hpa
+          - apache2
+          - syslinux
+    - name: Configure TFTP Server 1
+      ansible.builtin.lineinfile:
+        path: /etc/default/tftpd-hpa
+        search_string: 'TFTP_USERNAME'
+        line: 'TFTP_USERNAME="tftp"'
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Configure TFTP Server 2
+      ansible.builtin.lineinfile:
+        path: /etc/default/tftpd-hpa
+        search_string: 'TFTP_DIRECTORY'
+        line: 'TFTP_DIRECTORY="/srv/tftp"'
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Configure TFTP Server 3
+      ansible.builtin.lineinfile:
+        path: /etc/default/tftpd-hpa
+        search_string: 'TFTP_ADDRESS'
+        line: 'TFTP_ADDRESS="0.0.0.0:69"'
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Configure TFTP Server 4
+      ansible.builtin.lineinfile:
+        path: /etc/default/tftpd-hpa
+        search_string: 'TFTP_OPTIONS'
+        line: 'TFTP_OPTIONS="--secure"'
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Restart TFTP Service
+      ansible.builtin.service:
+        name: tftpd-hpa
+        enabled: yes
+        state: restarted
+
