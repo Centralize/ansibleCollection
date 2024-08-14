@@ -8,30 +8,8 @@
         name: "*"
         update_cache: yes
         state: latest
-    - name: Install requirements
-      ansible.builtin.apt:
-        pkg:
-        - subversion
-        - build-essential
-        - automake
-        - libtool
-        - libcppunit-dev
-        - libcur13-dev
-        - libsigc++-2.0-dev
-        - unzip
-        - unrar-free
-        - curl
-        - libncurses-dev
-    - name: Install Apache 2.x and PHP
-      ansible.builtin.apt:
-        pkg:
-        - apache2
-        - php8.1
-        - php8.1-cli
-        - php8.1-curl
-        - libapache2-mod-scgi
-    - name: Enable Apache mod SCGI
-      ansible.builtin.file:
-        src: /etc/apache2/mods-available/scgi.load
-        dest: /etc/apache2/mods-enabled/scgi.load
-        state: link
+    - name: Grab rtinst script
+      ansible.builtin.shell: 'sudo bash -c "$(wget --no-check-certificate -qO - https://raw.githubusercontent.com/arakasi72/rtinst/master/rtsetup)"'
+    - name: Send instructions
+      ansible.builtin.debug:
+        msg: 'Run "sudo rtinst" in the console to begin installation. Takes about 10 min.'
