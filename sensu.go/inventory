@@ -1,0 +1,6 @@
+[backend]
+sensu ansible_host=192.168.66.7
+
+[agents]
+openlab2 ansible_host=192.168.66.6
+umbrel ansible_host=192.168.66.4
