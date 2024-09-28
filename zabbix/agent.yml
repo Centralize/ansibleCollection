@@ -1,0 +1,21 @@
+---
+- name: Install Zabbix Agent
+  hosts: zabbix_agents
+  become: true
+  tasks:
+    - name: Download repo file.
+      ansible.builtin.get_url:
+        url: "https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_7.0-2+ubuntu22.04_all.deb"
+        dest: "~/zabbix-release_7.0-2+ubuntu22.04_all.deb"
+    - name: Install repo file.
+      ansible.builtin.shell: "dpkg -i ~/zabbix-release_7.0-2+ubuntu22.04_all.deb"
+    - name: Install Zabbix agent
+      ansible.builtin.apt:
+        name: "zabbix-agent"
+        update_cache: yes
+        state: latest
+    - name: Restart and enable Zabbix Agent Daemon
+      ansible.builtin.service:
+        name: zabbix-agent
+        enabled: yes
+        state: restarted
