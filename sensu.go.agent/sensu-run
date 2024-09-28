@@ -1,0 +1,16 @@
+#!/bin/bash
+
+SENSU_BACKEND_URL="ws://192.168.66.7:8081"
+SENSU_NAMESPACE="default"
+SENSU_USER="sensuadmin"
+SENSU_PASSWORD="sensupassword"
+
+sudo -E sensu-agent start \
+--name umbrel.openlab.dk \
+--backend-url ${SENSU_BACKEND_URL} \
+--namespace ${SENSU_NAMESPACE} \
+--subscriptions system/linux \
+--deregister true \
+--agent-managed-entity true \
+--user ${SENSU_USER} \
+--password ${SENSU_PASSWORD}
