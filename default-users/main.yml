@@ -1,0 +1,21 @@
+---
+- name: Create new default users.
+  hosts: new
+  become: true
+  tasks:
+    - name: Create new user for mkaas
+      user:
+        name: mkaas
+        comment: Mikkel Kaas
+        uid: 1100
+        groups: sudo
+        shell: /bin/bash
+        state: present
+    - name: Create new user for ansible
+      user:
+        name: ansible
+        comment: Ansible default user
+        uid: 1101
+        groups: sudo
+        shell: /bin/bash
+        state: present

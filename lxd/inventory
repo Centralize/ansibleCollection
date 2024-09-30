@@ -1,2 +1,2 @@
 [lxd_servers]
-wsl2 ansible_host=localhost
+lxd02 ansible_host=192.168.67.198

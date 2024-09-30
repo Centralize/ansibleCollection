@@ -1,0 +1,2 @@
+[new]
+newLinux	ansible_host=127.0.0.1 		# Change IP to new server/client IP.
