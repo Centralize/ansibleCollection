@@ -1,0 +1,9 @@
+#!/bin/bash
+
+APPNAME=$1
+
+echo "Preparing $APPNAME"
+mkdir -p $APPNAME
+touch $APPNAME/inventory
+touch $APPNAME/main.yml
+echo "Done."
