@@ -1,0 +1,30 @@
+---
+- name: Install and configure Sensu Go Agent
+  hosts: agents
+  become: true
+  tasks:
+    - name: Update apt cache and upgrade current packages.
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+    - name: Install needed packages.
+      ansible.builtin.apt:
+        pkg:
+          - wget
+          - curl
+          - gnupg2
+          - apt-transport-https
+    - name: Download repository setup script.
+      ansible.builtin.get_url:
+        url: https://packagecloud.io/install/repositories/sensu/stable/script.deb.sh
+        dest: ~/script.deb.sh
+        mode: '0777'
+    - name: Execute downloaded script.
+      ansible.builtin.shell: ~/script.deb.sh
+    - name: Update cache and install Sensu Go Agent.
+      ansible.builtin.apt:
+        name: "sensu-go-agent"
+        update_cache: yes
+        cache_valid_time: 3600
+        state: latest

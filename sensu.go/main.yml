@@ -1,0 +1,62 @@
+---
+- name: Install and configure Sensu Go Server
+  hosts: backend
+  become: true
+  tasks:
+    - name: Update apt cache and upgrade current packages.
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+    - name: Install needed packages.
+      ansible.builtin.apt:
+        pkg:
+          - wget
+          - curl
+          - gnupg2
+          - apt-transport-https
+    - name: Download repository setup script.
+      ansible.builtin.get_url:
+        url: https://packagecloud.io/install/repositories/sensu/stable/script.deb.sh
+        dest: ~/script.deb.sh
+        mode: '0777'
+    - name: Execute downloaded script.
+      ansible.builtin.shell: ~/script.deb.sh
+    - name: Update cache and install Sensu Go Backend.
+      ansible.builtin.apt:
+        name: "sensu-go-backend"
+        update_cache: yes
+        state: latest
+    - name: Download configuration file.
+      ansible.builtin.get_url:
+        url: https://docs.sensu.io/sensu-go/latest/files/backend.yml
+        dest: /etc/sensu/backend.yml
+    - name: Modify configuration file (cache-dir).
+      ansible.builtin.replace:
+        path: /etc/sensu/backend.yml
+        regexp: '^#cache-dir: "/var/cache/sensu/sensu-backend"'
+        replace: 'cache-dir: "/var/cache/sensu/sensu-backend"'
+    - name: Modify configuration file (config-file).
+      ansible.builtin.replace:
+        path: /etc/sensu/backend.yml
+        regexp: '^#config-file: "/etc/sensu/backend.yml"'
+        replace: 'config-file: "/etc/sensu/backend.yml"'
+    - name: Modify configuration file (log-level).
+      ansible.builtin.replace:
+        path: /etc/sensu/backend.yml
+        regexp: '^#log-level: "debug"'
+        replace: 'log-level: "debug"'
+    - name: Modify configuration file (state-dir).
+      ansible.builtin.replace:
+        path: /etc/sensu/backend.yml
+        regexp: '^#state-dir: "/var/lib/sensu/sensu-backend"'
+        replace: 'state-dir: "/var/lib/sensu/sensu-backend"'
+    - name: Enable Sensu Backend daemon.
+      ansible.builtin.service:
+        name: 'sensu-backend'
+        enabled: yes
+        state: started
+    - name: Cleanup Repository Script
+      ansible.builtin.file:
+        path: ~/script.deb.sh
+        state: absent
