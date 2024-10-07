@@ -19,8 +19,74 @@
           - locate
           - libreoffice  
           - office2003-schemas
+    
     - name: Update locate database
       ansible.builtin.shell: sudo updatedb
+    
+    - name: Fix sudoers
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%sudo'
+        line: '%sudo   ALL=(ALL:ALL) NOPASSWD: ALL'
+        validate: '/usr/sbin/visudo -cf %s'
+
+    - name: Create a new user for Ansible
+      user:
+        name: 'ansible'
+        state: present
+        groups: sudo
+        append: true
+        create_home: true
+        shell: /bin/bash
+
+    - name: Set authorized key for remote user
+      authorized_key:
+        user: 'ansible'
+        state: present
+        key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPhsiFC6qcU9bsCwhwZedUwwAMgZCNEvIE9YGVpdN+cC mka@Vortex'
+
+    - name: Reconfigure SSHd (Set port)
+      lineinfile:
+        path: '/etc/ssh/sshd_config'
+        state: present
+        regexp: '^#?Port 22'
+        line: 'Port 22'
+
+    - name: Reconfigure SSHd (Set Address)
+      lineinfile:
+        path: '/etc/ssh/sshd_config'
+        state: present
+        regexp: '^#?ListenAddress 0.0.0.0'
+        line: 'ListenAddress 0.0.0.0'
+
+    - name: Reconfigure SSHd (Permit root)
+      lineinfile:
+        path: '/etc/ssh/sshd_config'
+        state: present
+        regexp: '^#?PermitRootLogin prohibit-password'
+        line: 'PermitRootLogin yes'
+
+    - name: Reconfigure SSHd (Permit publickey)
+      lineinfile:
+        path: '/etc/ssh/sshd_config'
+        state: present
+        regexp: '^#?PubkeyAuthentication yes'
+        line: 'PubkeyAuthentication yes'
+
+    - name: Reconfigure SSHd (Permit passwords)
+      lineinfile:
+        path: '/etc/ssh/sshd_config'
+        state: present
+        regexp: '^#?PasswordAuthentication yes'
+        line: 'PasswordAuthentication yes'
+
+    - name: Restart SSH service
+      service:
+        name: ssh
+        state: restarted
+        enabled: yes
+
     - name: Post-Install message
       ansible.builtin.debug:
         msg: Post-Install complete.

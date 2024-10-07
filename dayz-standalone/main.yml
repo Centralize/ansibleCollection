@@ -3,12 +3,67 @@
   hosts: dayz_sa_server
   become: true
   tasks:
-    - name: Install SteamCMD...
-      get_url: "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
-      dest: "~/steamcmd_linux.tar.gz"
-      mode: '0644'
-    
+    - name: Update everything first
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        pkg:
+          - apt-utils
+          - lib32gcc1
+          - libcap-dev
+          - libcurl4
+          - libcurl4-openssl-dev
+        update_cache: yes
+        state: latest
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Create new "dayz" user
+      ansible.builtin.user:
+        name: dayz
+        comment: Service Account
+        create_home: yes
+        uid: 1100
+        groups: sudo
+        shell: /bin/bash
+        expires: -1
+        state: present
+
+    - name: Create directory basedir
+      ansible.builtin.file:
+        path: /dayz
+        state: directory
+        mode: '0755'
+        owner: dayz
+        group: dayz
+
+    - name: Create directory basedir/server
+      ansible.builtin.file:
+        path: /dayz/server
+        state: directory
+        mode: '0755'
+        owner: dayz
+        group: dayz
+
+    - name: Install SteamCMD
+      ansible.builtin.get_url: 
+        url: https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
+        dest: ~/steamcmd_linux.tar.gz
+
+    - name: Create directory /opt/steamcmd
+      ansible.builtin.file:
+        path: /opt/steamcmd
+        state: directory
+        mode: '0755'
+
     - name: Extract steamcmd_linux.tar.gz
-      unarchive: "~/steamcmd_linux.tar.gz"
-      dest: "/opt/steamcmd"
-      remote_src: yes
+      ansible.builtin.unarchive:
+        src: ~/steamcmd_linux.tar.gz
+        dest: /opt/steamcmd
+        remote_src: yes
