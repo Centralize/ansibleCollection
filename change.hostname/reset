@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cp inventory.orig inventory
+cp changeHostname.orig changeHostname.yml

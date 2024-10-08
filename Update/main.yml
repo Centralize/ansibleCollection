@@ -8,6 +8,8 @@
         name: "*"
         update_cache: yes
         state: latest
+      environment:
+        DEBIAN_FRONTEND: noninteractive
     - name: Install basic tools
       ansible.builtin.apt:
         pkg:

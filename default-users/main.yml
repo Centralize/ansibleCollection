@@ -8,7 +8,7 @@
         name: mkaas
         comment: Mikkel Kaas
         uid: 1100
-        password: $6$CDwO29kAQDl05z$H$vfftggjQiXW/ktXLg1JUAG2gFjn2dWToPDTUAKVyKBdyP7MEYvzZF9MICsxPuABe70Tq8IO04Ob4ZzJqSEtpI1
+        password: "$6$CDwO29kAQDl05z$H$vfftggjQiXW/ktXLg1JUAG2gFjn2dWToPDTUAKVyKBdyP7MEYvzZF9MICsxPuABe70Tq8IO04Ob4ZzJqSEtpI1"
         groups: sudo
         shell: /bin/bash
         state: present
@@ -17,7 +17,7 @@
         name: ansible
         comment: Ansible default user
         uid: 1101
-        password: $6$CDwO29kAQDl05z$H$vfftggjQiXW/ktXLg1JUAG2gFjn2dWToPDTUAKVyKBdyP7MEYvzZF9MICsxPuABe70Tq8IO04Ob4ZzJqSEtpI1
+        password: "$6$CDwO29kAQDl05z$H$vfftggjQiXW/ktXLg1JUAG2gFjn2dWToPDTUAKVyKBdyP7MEYvzZF9MICsxPuABe70Tq8IO04Ob4ZzJqSEtpI1"
         groups: sudo
         shell: /bin/bash
         state: present

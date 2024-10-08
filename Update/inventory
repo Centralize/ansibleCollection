@@ -1,2 +1,2 @@
 [newserver]
-newserver ansible_host=192.168.67.198
+newserver ansible_host=192.168.67.151

@@ -1,0 +1,9 @@
+---
+- name: Change Hostname
+  hosts: newhost
+  become: true
+  tasks:
+  - name: Set a hostname
+    ansible.builtin.hostname:
+      name: 'newhost'
+      use: systemd

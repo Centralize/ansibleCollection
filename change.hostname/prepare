@@ -1,0 +1,10 @@
+#!/bin/bash
+
+NEWHOSTNAME=$1
+NEWIPADDR=$2
+
+cp inventory inventory.orig
+sed -i -e "s/newhost	ansible_host=127.0.0.1/$NEWHOSTNAME	ansible_host=$NEWIPADDR/g" inventory
+
+cp changeHostname.yml changeHostname.orig
+sed -i -e "s/name: 'hostname'/name: '$NEWHOSTNAME'/g" changeHostname.yml

@@ -7,7 +7,7 @@ log_level = info
 log_file = /var/log/openxpki/openxpki.log
 
 # Set the server hostname
-server_hostname = {{ ansible_hostname }}
+server_hostname = openxpki.openlab.dk
 
 # Define the working directory
 working_dir = /var/lib/openxpki
@@ -16,12 +16,12 @@ working_dir = /var/lib/openxpki
 # PostgreSQL database connection settings
 dsn = dbi:Pg:dbname=openxpki;host=localhost
 user = openxpki
-password = yourpassword
+password = 88UndeadLavaBobs_
 
 [Web]
 # Web interface settings
 webserver = apache2
-base_url = http://{{ ansible_hostname }}/openxpki
+base_url = http://openxpki.openlab.dk/openxpki
 
 [Session]
 # Session settings
@@ -36,6 +36,6 @@ log_level = debug
 # Security settings
 # Note: Adjust as necessary for your security requirements
 enable_ssl = 1
-ssl_cert = /etc/ssl/certs/your_cert.pem
-ssl_key = /etc/ssl/private/your_key.pem
+ssl_cert = /etc/ssl/certs/onsite.crt
+ssl_key = /etc/ssl/private/onsite.key
 

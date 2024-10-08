@@ -1,0 +1,25 @@
+- name: Configure OpenXPKI
+  template:
+    src: openxpki.conf.j2
+    dest: /etc/openxpki/openxpki.conf
+  notify: restart openxpki
+
+- name: Set up database
+  postgresql_db:
+    name: openxpki
+    owner: openxpki
+    state: present
+
+- name: Create OpenXPKI user
+  postgresql_user:
+    name: openxpki
+    password: yourpassword
+    db: openxpki
+    role_attr_flags: LOGIN
+    state: present
+
+handlers:
+  - name: restart openxpki
+    service:
+      name: openxpki
+      state: restarted
