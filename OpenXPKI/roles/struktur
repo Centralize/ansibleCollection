@@ -1,0 +1,18 @@
+ansible-playbook/
+├── playbook.yml
+└── roles/
+    ├── common/
+    │   ├── tasks/
+    │   │   └── main.yml
+    ├── openxpki/
+    │   ├── tasks/
+    │   │   └── main.yml
+    │   └── templates/
+    │       └── openxpki.conf.j2
+    ├── webserver/
+    │   ├── tasks/
+    │   │   └── main.yml
+    └── database/
+        ├── tasks/
+        │   └── main.yml
+
