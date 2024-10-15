@@ -1,2 +1,6 @@
 [newserver]
+<<<<<<< HEAD
 newserver ansible_host=192.168.67.151
+=======
+newserver ansible_host=192.168.67.133
+>>>>>>> 2d9c0d0 (OpenXPKI Removed, since it is debian only.)
