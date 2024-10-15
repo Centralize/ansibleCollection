@@ -1,0 +1,23 @@
+---
+- name: Install IRC Server
+  hosts: ircsrv
+  become: true
+  tasks:
+    - name: Install dependencies
+      ansible.builtin.apt:
+        pkg:
+          - git
+          - perl
+          - g++
+          - make
+          - build-essential
+          - vim
+          - mc
+          - unrar
+          - p7zip
+          - net-tools
+        update_cache: yes
+        state: latest
+    - name: Download Source
+      ansible.builtin.get_url: "https://github.com/inspircd/inspircd/archive/v2.0.25.tar.gz"
+        dest: ~/v2.0.25.tar.gz
