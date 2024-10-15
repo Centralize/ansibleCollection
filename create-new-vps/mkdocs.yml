@@ -1,0 +1,19 @@
+---
+- name: Create new vps as mkdocs.
+  hosts: cloud
+  become: yes
+  tasks:
+    - name: Create new host
+      ansible.builtin.shell: "/usr/local/bin/newlx ubuntu:22.04 mkdocs"
+    - name: Sync Authkeys 1
+      ansible.builtin.shell: "/usr/local/bin/authkey mkdocs"
+    - name: Sync Authkeys 1
+      ansible.builtin.shell: "/usr/local/bin/authkey mkdocs"
+    - name: Sync Authkeys 1
+      ansible.builtin.shell: "/usr/local/bin/authkey mkdocs"
+    - name: Output IPs
+      ansible.builtin.shell: "/usr/local/bin/lx"
+      register: output
+    - name: Output
+      ansible.builtin.debug:
+        msg: "{{ output }}"

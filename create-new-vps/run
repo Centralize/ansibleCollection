@@ -1,0 +1,31 @@
+#!/bin/bash
+
+NEWHOST=$1
+CLOUD=$2
+
+echo "[cloud]" > inventory
+echo "cloud ansible_host=$CLOUD" >> inventory
+
+echo "---" > $NEWHOST.yml
+echo "- name: Create new vps as $NEWHOST." >> $NEWHOST.yml
+echo "  hosts: cloud" >> $NEWHOST.yml
+echo "  become: yes" >> $NEWHOST.yml
+echo "  tasks:" >> $NEWHOST.yml
+echo "    - name: Create new host" >> $NEWHOST.yml
+echo "      ansible.builtin.shell: \"/usr/local/bin/newlx ubuntu:22.04 $NEWHOST\"" >> $NEWHOST.yml
+echo "    - name: Sync Authkeys 1" >> $NEWHOST.yml
+echo "      ansible.builtin.shell: \"/usr/local/bin/authkey mkdocs\"" >> $NEWHOST.yml
+echo "    - name: Sync Authkeys 1" >> $NEWHOST.yml
+echo "      ansible.builtin.shell: \"/usr/local/bin/authkey mkdocs\"" >> $NEWHOST.yml
+echo "    - name: Sync Authkeys 1" >> $NEWHOST.yml
+echo "      ansible.builtin.shell: \"/usr/local/bin/authkey mkdocs\"" >> $NEWHOST.yml
+echo "    - name: Output IPs" >> $NEWHOST.yml
+echo "      ansible.builtin.shell: \"/usr/local/bin/lx\"" >> $NEWHOST.yml
+echo "      register: output" >> $NEWHOST.yml
+echo "    - name: Output" >> $NEWHOST.yml
+echo "      ansible.builtin.debug:" >> $NEWHOST.yml
+echo "        msg: \"{{ output }}\"" >> $NEWHOST.yml
+
+sudo ansible-playbook -i inventory $NEWHOST.yml
+sleep 5
+sudo ansible-playbook -i inventory $NEWHOST.yml
