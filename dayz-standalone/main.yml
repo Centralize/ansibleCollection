@@ -1,30 +1,34 @@
 ---
 - name: Install and configure Dayz Standalone Server
   hosts: dayz_sa_server
+  gather_facts: yes
   become: true
   tasks:
+    - name: System details
+      debug:
+        msg: "{{ ansible_facts['lsb']['release'] }}"
+
     - name: Update everything first
-      ansible.builtin.apt:
-        name: "*"
-        update_cache: yes
-        state: latest
-      environment:
-        DEBIAN_FRONTEND: noninteractive
+      ansible.builtin.shell: "apt-get update; apt-get upgrade -y"
+      when: ansible_facts['lsb']['release'] == "18.04"
 
-    - name: Install required packages
-      ansible.builtin.apt:
-        pkg:
-          - apt-utils
-          - lib32gcc1
-          - libcap-dev
-          - libcurl4
-          - libcurl4-openssl-dev
-        update_cache: yes
-        state: latest
-      environment:
-        DEBIAN_FRONTEND: noninteractive
+    - name: Enable i386 repository
+      ansible.builtin.shell: "dpkg --add-architecture i386"
+      when: ansible_facts['lsb']['release'] == "18.04"
 
-    - name: Create new "dayz" user
+    - name: Update apt cache for i386
+      ansible.builtin.shell: "apt-get update"
+      when: ansible_facts['lsb']['release'] == "18.04"
+
+    - name: Install dependencies
+      ansible.builtin.shell: "apt-get install -y apt-utils lib32gcc1 libcap-dev libcurl4 libcurl4-openssl-dev"
+      when: ansible_facts['lsb']['release'] == "18.04"
+
+    - name: Do some cleaning
+      ansible.builtin.shell: "apt-get autoremove -y; rm -rf /var/lib/apt/lists/*"
+      when: ansible_facts['lsb']['release'] == "18.04"
+
+    - name: Setup user  
       ansible.builtin.user:
         name: dayz
         comment: Service Account
@@ -51,19 +55,8 @@
         owner: dayz
         group: dayz
 
-    - name: Install SteamCMD
-      ansible.builtin.get_url: 
-        url: https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
-        dest: ~/steamcmd_linux.tar.gz
-
     - name: Create directory /opt/steamcmd
       ansible.builtin.file:
         path: /opt/steamcmd
         state: directory
         mode: '0755'
-
-    - name: Extract steamcmd_linux.tar.gz
-      ansible.builtin.unarchive:
-        src: ~/steamcmd_linux.tar.gz
-        dest: /opt/steamcmd
-        remote_src: yes
