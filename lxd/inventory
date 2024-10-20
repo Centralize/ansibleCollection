@@ -1,2 +1,2 @@
 [lxd_servers]
-lxd02 ansible_host=192.168.67.198
+lxd02 ansible_host=192.168.64.4

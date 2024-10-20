@@ -1,0 +1,2 @@
+[nextcloud]
+nextcloud ansible_host=192.168.67.105
