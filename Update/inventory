@@ -1,2 +1,3 @@
-[newserver]
-newserver ansible_host=192.168.64.4
+[updating]
+vortex 		ansible_host=127.0.0.1
+openlab		ansible_host=192.168.87.113
