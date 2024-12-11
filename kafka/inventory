@@ -1,0 +1,2 @@
+[kafka]
+newsrv		ansible_host=192.168.87.169

@@ -1,0 +1,9 @@
+---
+- hosts: kafka
+  become: true
+  tasks:
+    - name: Update and upgrade.
+      ansible.builtin.apt:
+        name: '*'
+        update_cache: yes
+        state: latest

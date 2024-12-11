@@ -6,4 +6,18 @@ echo "Preparing $APPNAME"
 mkdir -p $APPNAME
 touch $APPNAME/inventory
 touch $APPNAME/main.yml
+
+echo "Posting content to $APPNAME/inventory"
+echo "[newserver]" > $APPNAME/inventory
+echo "$APPNAME    ansible_host=IPADDRESS" >> $APPNAME/inventory
+echo "$APPNAME/main.yml created."
+
+echo "Posting content to $APPNAME/main.yml"
+echo "---" > $APPNAME/main.yml
+echo "- hosts: newserver" >> $APPNAME/main.yml
+echo "  become: true" >> $APPNAME/main.yml
+echo "  tasks:" >> $APPNAME/main.yml
+echo "    - name: task_description" >> $APPNAME/main.yml
+echo "$APPNAME/main.yml created."
+
 echo "Done."

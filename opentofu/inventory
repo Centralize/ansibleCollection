@@ -1,0 +1,2 @@
+[newserver]
+opentofu    ansible_host=IPADDRESS
