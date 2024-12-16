@@ -44,8 +44,6 @@ Ansible Collection is a collection of Ansible Playbooks.
   Nextcloud Server (Documentation / Calendar / File management System).
 - OpenTofu
   HashiCorp Terraform fork.
-- postinstall
-  Server Post Installation Script.
 - postinstall-workstation
   Workstation Post Installation Script.
 - pxe
