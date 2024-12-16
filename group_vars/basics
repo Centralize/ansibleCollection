@@ -1,5 +1,0 @@
-admin_user: mkaas
-admin_password: 
-admin_home: /home/mkaas
-admin_id: 1000
-admin_shell: /bin/zsh
