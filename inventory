@@ -1,32 +1,8 @@
 [gitrepp]
 gitlab          ansible_host=192.168.87.114
 
-[kafka]
-kafka           ansible_host=192.168.87.169
-
-[kubernetes]
-kube02          ansible_host=192.168.87.118
-
-[metube]
-metube          ansible_host=192.168.87.143
-
 [dns]
 ns3             ansible_host=192.168.87.195
 
 [observium]
 observium       ansible_host=192.168.87.176
-
-[prometheus]
-prometheus      ansible_host=192.168.87.108
-
-[seedbox]
-seedbox2        ansible_host=192.168.87.186
-
-[webserver]
-web01           ansible_host=192.168.87.198
-
-[xymon]
-xymon01         ansible_host=192.168.87.146
-
-[zabbix]
-zabbix          ansible_host=192.168.87.102

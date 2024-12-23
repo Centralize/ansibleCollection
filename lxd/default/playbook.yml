@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    lxd_trust_password: "88UndeadLavaBobs_"
+    lxd_init: false
+  roles:
+    - role: your_role_name
