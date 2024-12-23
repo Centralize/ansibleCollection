@@ -1,0 +1,2 @@
+[newserver]
+netbird    ansible_host=IPADDRESS

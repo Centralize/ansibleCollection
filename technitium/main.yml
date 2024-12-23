@@ -1,0 +1,6 @@
+---
+- hosts: newserver
+  become: true
+  tasks:
+    - name: Install or Update Technitium
+      ansible.builtin.shell: 'curl -sSL https://download.technitium.com/dns/install.sh | sudo bash'
