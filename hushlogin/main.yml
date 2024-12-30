@@ -1,0 +1,8 @@
+---
+- hosts: newserver
+  become: true
+  tasks:
+    - name: Touch .hushlogin
+      ansible.builtin.file:
+        path: "~/.hushlogin"
+        state: touch

@@ -1,2 +1,2 @@
 [updating]
-dsm72		ansible_host=192.168.87.177
+newserver	ansible_host=192.168.87.144
