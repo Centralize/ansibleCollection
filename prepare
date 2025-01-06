@@ -21,3 +21,4 @@ echo "    - name: task_description" >> $APPNAME/main.yml
 echo "$APPNAME/main.yml created."
 
 echo "Done."
+exit 0
