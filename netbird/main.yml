@@ -1,5 +1,20 @@
 ---
-- hosts: newserver
+- hosts: all
   become: true
   tasks:
-    - name: task_description
+    - name: Installer Netbird (Debian/Ubuntu)
+      apt:
+        deb: https://download.netbird.io/repos/deb/netbird-latest.deb
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+    - name: Installer Netbird (Red Hat/CentOS)
+      yum:
+        name: https://download.netbird.io/repos/rpm/netbird-latest.rpm
+        state: present
+      when: ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS'
+
+    - name: Start Netbird service
+      service:
+        name: netbird
+        state: started
+        enabled: yes

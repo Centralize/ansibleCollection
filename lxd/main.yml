@@ -5,14 +5,15 @@
   tasks:
     - name: Install LXD
       ansible.builtin.shell: "snap install lxd"
-    - name: Initialize LXD
-      ansible.builtin.shell: |
-        lxd init --auto \
-          --storage-backend=dir \
-          --network-address=0.0.0.0 \
-          --network-port=8443 \
-          --trust-password={{ lxd_trust_password }}
-      vars:
-        lxd_trust_password: "{{ lookup('env', '88UndeadLavaBobs_') }}"
-      when: lxd_init is not defined or not lxd_init
+      - name: Initialize LXD
+        ansible.builtin.shell: |
+          lxd init --auto \
+            --storage-backend=dir \
+            --network-address=0.0.0.0 \
+            --network-port=8443 \
+            --trust-password={{ lxd_trust_password }}
+        when: lxd_init is not defined or not lxd_init
+  
+    vars:
+      lxd_trust_password: "{{ lookup('env', '88UndeadLavaBobs_') }}"
         
