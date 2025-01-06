@@ -6,4 +6,4 @@
     lxd_trust_password: "88UndeadLavaBobs_"
     lxd_init: false
   roles:
-    - role: your_role_name
+    - role: install_lxd

@@ -1,0 +1,25 @@
+---
+## Molecule Configuration
+
+Create a new directory named `molecule` inside your role directory and a sub-directory `default`. Inside `default`, create two files: `molecule.yml` and `playbook.yml`.
+
+`molecule.yml`:
+
+```yaml
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: instance
+    image: "geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest"
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+provisioner:
+  name: ansible
+verifier:
+  name: ansible
