@@ -1,0 +1,5 @@
+---
+- hosts: newserver
+  become: true
+  tasks:
+    - name: task_description

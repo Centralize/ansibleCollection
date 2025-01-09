@@ -1,0 +1,8 @@
+[ncpa]
+nagios    ansible_host=192.168.87.198
+ctrl01    ansible_host=192.168.87.147
+dsm72     ansible_host=192.168.87.177
+gitlab    ansible_host=192.168.87.115
+mysql01   ansible_host=192.168.87.161
+nextcloud ansible_host=192.168.87.190
+ns3       ansible_host=192.168.87.195

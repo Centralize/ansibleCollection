@@ -1,0 +1,2 @@
+[newserver]
+nagiosXI    ansible_host=IPADDRESS

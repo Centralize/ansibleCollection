@@ -1,0 +1,14 @@
+---
+- hosts: mysql
+  become: true
+  tasks:
+    - name: Install MySQL Server
+      ansible.builtin.apt:
+        name: "mysql-server"
+        update-cache: yes
+        state: latest
+    - name: Install MySQL Client
+      ansible.builtin.apt:
+        name: "mysql-client"
+        update-cache: yes
+        state: latest

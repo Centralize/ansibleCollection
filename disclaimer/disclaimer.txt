@@ -1,0 +1,16 @@
+Disclaimer
+
+This is a private computer system. All access to this system is restricted to authorized users only. 
+By accessing this system, you agree to the terms and conditions outlined in this disclaimer. 
+Unauthorized access or use is strictly prohibited and may subject violators to disciplinary action, legal prosecution, 
+or civil penalties.   
+
+By using this system, you acknowledge and consent to the monitoring and logging of all user activity. 
+System administrators may monitor, record, copy, and use any information placed on or sent over this system for authorized purposes, including but not limited to:    
+
+* Ensuring authorized use
+* Managing system resources
+* Protecting against unauthorized access
+* Verifying security procedures
+
+If you do not agree to these conditions, do not access or use this system. 

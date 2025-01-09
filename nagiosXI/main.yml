@@ -1,0 +1,7 @@
+---
+- hosts: nagios
+  become: true
+  tasks:
+    - name: Install Nagios XI 2024
+      ansible.builtin.url: "https://assets.nagios.com/downloads/nagiosxi/install.sh"
+

@@ -1,0 +1,7 @@
+---
+- hosts: ncpa
+  become: true
+  tasks:
+    - name: Download NCPA (Nagios XI Agent)
+      ansible.builtin.apt:
+        deb: https://assets.nagios.com/downloads/ncpa/ncpa-latest.amd64.deb
