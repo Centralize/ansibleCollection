@@ -1,0 +1,52 @@
+---
+- hosts: terminalserver
+  become: true
+  tasks:
+    - name: Upgrade everything
+      ansible.builtin.apt:
+        name: "*"
+        update_cache: yes
+        state: latest
+    - name: Install SSH Server
+      ansible.builtin.apt:
+        name: openssh-server
+        state: latest
+    - name: Install xrdp
+      ansible.builtin.apt:
+        name: xrdp
+        state: latest
+    - name: Install Build-essential
+      ansible.builtin.apt:
+        name: build-essential
+        state: latest
+    - name: Install dpkg-dev
+      ansible.builtin.apt:
+        name: dpkg-dev
+        state: latest
+    - name: Install libpulse-dev
+      ansible.builtin.apt:
+        name: libpulse-dev
+        state: latest
+    - name: Install git
+      ansible.builtin.apt:
+        name: git
+        state: latest
+    - name: Install autoconf
+      ansible.builtin.apt:
+        name: autoconf
+        state: latest
+    - name: Install libtool
+      ansible.builtin.apt:
+        name: libtool
+        state: latest
+    - name: Clone pulseaudio module for xrdp
+      ansible.builtin.git:
+        repo: 'https://github.com/neutrinolabs/pulseaudio-module-xrdp.git'
+        dest: /tmp/pulseaudio-module-xrdp
+    - name: Run script
+      ansible.builtin.shell: '/tmp/pulseaudio-module-xrdp/scripts/./install_pulseaudio_sources_apt_wrapper.sh'
+    - name: Bootstrap
+      ansible.builtin.shell: '/tmp/pulseaudio-module-xrdp/./bootstrap && ./configure PULSE_DIR=~/pulseaudio.src'
+    - name: Make, make install
+      ansible.builtin.shell: 'make && make install'
+    

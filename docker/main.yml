@@ -1,0 +1,35 @@
+---
+- hosts: dockerhosts
+  become: true
+  tasks:
+    - name: Install ca-certificates
+      ansible.builtin.apt:
+        name: ca-certificates
+        update_cache: yes
+        state: latest
+    - name: Install curl
+      ansible.builtin.apt:
+        name: curl
+        update_cache: yes
+        state: latest
+    - name: Set permissions
+      ansible.builtin.shell: chmod 0755 /etc/apt/keyrings/
+    - name: Grab key from docker.com
+      ansible.builtin.shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    - name: Adjust permissions for key
+      ansible.builtin.shell: chmod a+r /etc/apt/keyrings/docker.asc
+    - name: Add new repo source
+      ansible.builtin.shell: 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list'
+    - name: Update apt cache
+      ansible.builtin.apt:
+        name: htop
+        update_cache: yes
+        state: present
+    - name: Install docker packages
+      ansible.builtin.apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin

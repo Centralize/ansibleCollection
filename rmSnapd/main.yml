@@ -1,0 +1,16 @@
+---
+- hosts: removePackage
+  become: true
+  tasks:
+    - name: Remove Snapd
+      ansible.builtin.apt:
+        name: 'snapd'
+        state: absent
+    - name: Remove Containerd
+      ansible.builtin.apt:
+        name: 'containerd'
+        state: absent
+    - name: Remove Multipathd
+      ansible.builtin.apt:
+        name: 'multipathd'
+        state: absent

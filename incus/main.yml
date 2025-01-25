@@ -1,0 +1,17 @@
+---
+- hosts: newserver
+  become: true
+  tasks:
+    - name: Install Incus
+      ansible.builtin.apt:
+        name: incus
+        update_cache: yes
+        state: latest
+    - name: Install Incus-tools
+      ansible.builtin.apt:
+        name: incus-tools
+        state: latest
+    - name: Intall Incus-client
+      ansible.builtin.apt:
+        name: incus-client
+        state: latest

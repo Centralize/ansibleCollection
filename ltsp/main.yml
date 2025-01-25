@@ -1,0 +1,48 @@
+---
+- hosts: ltspsetup
+  become: true
+  tasks:
+    - name: Configure LTSP PPA.
+      ansible.builtin.apt_repository:
+        repo: 'ppa:ltsp'
+    - name: Update apt cache and packages.
+      ansible.builtin.apt:
+        name: '*'
+        update_cache: yes
+        state: latest
+    - name: Install LTSP
+      ansible.builtin.apt:
+        name: ltsp
+        state: latest
+    - name: Install ltsp-binaries
+      ansible.builtin.apt:
+        name: ltsp-binaries
+        state: latest
+    - name: Install dnsmasq
+      ansible.builtin.apt:
+        name: dnsmasq
+        state: latest
+    - name: Install nfs-kernel-server
+      ansible.builtin.apt:
+        name: nfs-kernel-server
+        state: latest
+    - name: Install SSH
+      ansible.builtin.apt:
+        name: openssh-server
+        state: latest
+    - name: Install squashfs-tools
+      ansible.builtin.apt:
+        name: squashfs-tools
+        state: latest
+    - name: Install ethtool
+      ansible.builtin.apt:
+        name: ethtool
+        state: latest
+    - name: Install net-tools
+      ansible.builtin.apt:
+        name: net-tools
+        state: latest
+    - name: Install epoptes
+      ansible.builtin.apt:
+        name: epoptes
+        state: latest
