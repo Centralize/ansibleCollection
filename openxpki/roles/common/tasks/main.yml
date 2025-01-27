@@ -1,0 +1,14 @@
+- name: Update apt repository
+  apt:
+    update_cache: yes
+
+- name: Install required packages
+  apt:
+    name:
+      - openxpki
+      - openxpki-doc
+      - openxpki-devel
+      - apache2
+      - libapache2-mod-fcgid
+      - postgresql
+    state: present

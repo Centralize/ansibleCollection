@@ -1,0 +1,23 @@
+---
+- name: Update packages
+  hosts: all
+  become: true
+  tasks:
+    - name: Update cache and Upgrade all packages
+      community.general.zypper:
+        name: "*"
+        update_cache: yes
+        state: latest
+    - name: Install basic tools
+      community.general.zypper:
+        pkg:
+          - mc
+          - vim
+          - snapd
+          - flatpak
+          - unzip
+          - unrar-free
+          - wget
+          - curl
+          - net-tools
+          - whois
