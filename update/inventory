@@ -1,2 +1,2 @@
 [updating]
-newserver	ansible_host=192.168.64.30
+newserver	ansible_host=127.0.0.1

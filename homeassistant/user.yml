@@ -1,0 +1,10 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Setup new User
+      ansible.builtin.shell: useradd -rm homeassistant -G dialout
+    - name: Create user dir
+      ansible.builtin.shell: mkdir /srv/homeassistant
+    - name: Change permissions for directory
+      ansible.builtin.shell: chown homeassistant:homeassistant /srv/homeassistant

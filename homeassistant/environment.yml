@@ -1,0 +1,25 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Setup environment
+      ansible.builtin.shell:
+        cmd: python3 -m venv .
+        chdir: /srv/homeassistant
+      become_user: homeassistant
+    - ansible.builtin.shell:
+        cmd: source /srv/homeassistant/bin/activate
+        chdir: /srv/homeassistant
+      become_user: homeassistant
+    - ansible.builtin.shell:
+        cmd: python3 -m pip install wheel
+        chdir: /srv/homeassistant
+      become_user: homeassistant
+    - ansible.builtin.shell:
+        cmd: pip3 install homeassistant==2025.1.4
+        chdir: /srv/homeassistant
+      become_user: homeassistant
+    - ansible.builtin.shell:
+        cmd: hass
+        chdir: /srv/homeassistant
+      become_user: homeassistant
