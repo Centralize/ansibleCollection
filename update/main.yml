@@ -15,8 +15,6 @@
         name: "python3"
         update_cache: yes
         state: latest
-    - name: Symlink to python3
-      ansible.builtin.shell: sudo ln -s /usr/bin/python3 /usr/bin/python
     - name: Install basic tools
       ansible.builtin.apt:
         pkg:
