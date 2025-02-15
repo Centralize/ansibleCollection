@@ -1,0 +1,33 @@
+version: '3'
+services:
+  web:
+    image: ansible/awx_web:{{ awx_version }}
+    environment:
+      - AWX_ADMIN_USER=admin
+      - AWX_ADMIN_PASSWORD=password
+    ports:
+      - "8080:80"
+    depends_on:
+      - database
+      - redis
+    restart: always
+
+  database:
+    image: postgres:12
+    environment:
+      - POSTGRES_USER=awx
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=awx
+    volumes:
+      - awx-postgres-data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:6
+    volumes:
+      - awx-redis-data:/data
+    restart: always
+
+volumes:
+  awx-postgres-data:
+  awx-redis-data:

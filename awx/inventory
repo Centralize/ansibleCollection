@@ -1,0 +1,19 @@
+[awx_servers]
+awx	ansible_host=192.168.64.42	ansible_python_interpreter="/usr/bin/python"
+
+[all:vars]
+dockerhub_base=ansible
+awx_task_hostname=awx
+awx_web_hostname=awxweb
+postgres_data_dir="/var/lib/awx/pgdocker"
+host_port=80
+host_port_ssl=443
+docker_compose_dir="/var/lib/awx/awxcompose"
+pg_username=awx
+pg_password=awxpass
+pg_database=awx
+pg_port=5432
+admin_user=admin
+admin_password=password
+create_preload_data=True
+project_data_dir="/var/lib/awx/projects"

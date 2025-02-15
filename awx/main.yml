@@ -1,0 +1,45 @@
+---
+- name: Deploy Ansible AWX
+  hosts: all
+  become: yes
+  vars:
+    awx_repo_url: "https://github.com/ansible/awx"
+    awx_install_dir: "/opt/awx"
+    awx_version: "21.10.0"  # Specify the desired version or branch
+    docker_compose_version: "1.29.2"
+
+  tasks:
+    - name: Ensure required packages are installed
+      package:
+        name:
+          - git
+          - docker-ce
+          - docker-compose
+          - python3-pip
+        state: present
+
+    - name: Clone the AWX repository
+      git:
+        repo: "{{ awx_repo_url }}"
+        dest: "{{ awx_install_dir }}"
+        version: "{{ awx_version }}"
+        force: yes
+
+    - name: Run the AWX installer
+      shell: /opt/awx/tools/docker-compose up -d
+      args:
+        chdir: "{{ awx_install_dir }}/tools/docker-compose"
+
+    - name: Wait for AWX to be ready
+      uri:
+        url: http://localhost:80
+        status_code: 200
+      register: result
+      retries: 10
+      delay: 30
+      until: result.status == 200
+
+    - name: Display AWX access information
+      debug:
+        msg: "AWX is deployed and accessible at http://localhost:80. Default credentials are admin/password."
+

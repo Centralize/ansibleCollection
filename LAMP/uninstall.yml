@@ -1,9 +1,0 @@
----
-- name: Uninstall
-  hosts: lamp
-  become: true
-  tasks:
-    - name: Uninstall Apache 2.x
-      ansible.builtin.apt:
-        name: apache2
-        state: absent

@@ -1,9 +1,0 @@
----
-- name: Install Lets Encrypt
-  hosts: lamp
-  become: true
-  tasks:
-    - name: Install Lets Encrypt
-      ansible.builtin.apt:
-        name: letsencrypt
-        state: latest

@@ -1,5 +1,5 @@
 ---
-- hosts: newserver
+- hosts: all
   become: true
   tasks:
     - name: Touch .hushlogin

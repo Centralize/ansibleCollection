@@ -10,6 +10,13 @@
         state: latest
       environment:
         DEBIAN_FRONTEND: noninteractive
+    - name: Install Python 3.x
+      ansible.builtin.apt:
+        name: "python3"
+        update_cache: yes
+        state: latest
+    - name: Symlink to python3
+      ansible.builtin.shell: sudo ln -s /usr/bin/python3 /usr/bin/python
     - name: Install basic tools
       ansible.builtin.apt:
         pkg:

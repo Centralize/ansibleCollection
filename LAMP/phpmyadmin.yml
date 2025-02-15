@@ -1,9 +1,0 @@
----
-- name: Install phpMyAdmin
-  hosts: lamp
-  become: true
-  tasks:
-    - name: Install phpMyAdmin package
-      ansible.builtin.apt:
-        name: phpmyadmin
-        state: latest
