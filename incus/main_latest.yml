@@ -1,0 +1,97 @@
+---
+- name: Download and Install Latest Incus
+  hosts: all
+  become: true
+  vars:
+    # Define the user to be added to the incus-admin group.
+    # It is highly recommended to change this to your administrative user.
+    incus_admin_user: "{{ ansible_user | default('ubuntu') }}"
+
+  tasks:
+    - name: Gather distribution facts
+      ansible.builtin.setup:
+        filter:
+          - ansible_os_family
+
+    # =========================================================================
+    # Installation on Debian-based Systems (Ubuntu)
+    # =========================================================================
+    - name: Install Incus on Debian-based systems
+      when: ansible_os_family == "Debian"
+      block:
+        - name: Install prerequisite packages for adding APT repositories
+          ansible.builtin.apt:
+            name:
+              - apt-transport-https
+              - ca-certificates
+              - curl
+              - gpg
+            state: present
+            update_cache: true
+
+        - name: Create keyrings directory
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
+
+        - name: Add Zabbly GPG key
+          ansible.builtin.get_url:
+            url: https://pkgs.zabbly.com/key.asc
+            dest: /etc/apt/keyrings/zabbly.asc
+            mode: '0644'
+            force: true
+
+        - name: Add the Zabbly Incus stable repository
+          ansible.builtin.apt_repository:
+            repo: "deb [signed-by=/etc/apt/keyrings/zabbly.asc] https://pkgs.zabbly.com/incus/stable {{ ansible_distribution_release }} main"
+            state: present
+            filename: zabbly-incus-stable
+
+        - name: Install Incus package
+          ansible.builtin.apt:
+            name: incus
+            state: latest
+            update_cache: true
+
+    # =-------------------------------------------------------------------------
+    # Installation on RedHat-based Systems (Rocky Linux, AlmaLinux, CentOS)
+    # =================---------------------------------------------------------
+    - name: Install Incus on RedHat-based systems
+      when: ansible_os_family == "RedHat"
+      block:
+        - name: Ensure EPEL repository is enabled
+          ansible.builtin.dnf:
+            name: epel-release
+            state: present
+
+        - name: Enable the neil/incus COPR repository
+          ansible.builtin.command:
+            cmd: dnf copr enable -y neil/incus
+          args:
+            warn: false # dnf copr enable returns 1 if already enabled
+          changed_when: false # Idempotence is handled by the command itself
+
+        - name: Install Incus package
+          ansible.builtin.dnf:
+            name: incus
+            state: latest
+
+    # =========================================================================
+    # Post-Installation Configuration
+    # =========================================================================
+    - name: Add admin user to the incus-admin group
+      ansible.builtin.user:
+        name: "{{ incus_admin_user }}"
+        groups: incus-admin
+        append: yes
+      notify: User added to incus-admin group
+
+  handlers:
+    - name: User added to incus-admin group
+      ansible.builtin.debug:
+        msg: |
+          The user '{{ incus_admin_user }}' has been added to the 'incus-admin' group.
+          A new login session is required for this change to take effect.
+          After reconnecting, you can manage Incus without sudo.
+          Run 'incus admin init' to configure Incus for the first time.

@@ -1,25 +1,25 @@
 #!/bin/bash
 
 echo "Update all packages, before installation."
-sudo ansible-playbook -i inventory ../Update/main.yml
+ansible-playbook -i inventory ../update/main.yml -u root
 
 echo "Install basic toolchain."
-sudo ansible-playbook -i inventory basics.yml
+ansible-playbook -i inventory basics.yml -u root
 
 echo "Install Apache 2.x."
-sudo ansible-playbook -i inventory apache2.yml
+ansible-playbook -i inventory apache2.yml -u root
 
 echo "Install MySQL 8.x."
-sudo ansible-playbook -i inventory mysql.yml
+ansible-playbook -i inventory mysql.yml -u root
 
 echo "Install PHP 8.1 and install PHP MySQL Module."
-sudo ansible-playbook -i inventory php8.yml
+ansible-playbook -i inventory php8.yml -u root
 
 echo "Install phpmyadmin."
-sudo ansible-playbook -i inventory phpmyadmin.yml
+ansible-playbook -i inventory phpmyadmin.yml -u root
 
 echo "Install Lets Encrypt."
-sudo ansible-playbook -i inventory letsencrypt.yml
+ansible-playbook -i inventory letsencrypt.yml -u root
 
 echo "Done."
 exit 0

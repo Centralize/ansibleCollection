@@ -1,0 +1,5 @@
+---
+- hosts: newserver
+  become: true
+  tasks:
+    - name: Update SSHd Configuration

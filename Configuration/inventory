@@ -1,0 +1,2 @@
+[newserver]
+Configuration    ansible_host=IPADDRESS
