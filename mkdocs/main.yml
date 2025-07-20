@@ -1,11 +1,121 @@
 ---
-- hosts: mkdocs
-  become: true
+- name: Deploy MkDocs Documentation Site
+  hosts: all # Change this to your target host group, e.g., 'webservers'
+  become: yes # Required to install system packages
+
+  vars:
+    # -- Project Configuration --
+    mkdocs_project_name: "My Awesome Docs" # The display name for your site
+    mkdocs_project_path: "/var/www/docs"   # The root directory for the project
+    mkdocs_theme: "material"               # The theme to use (material is recommended)
+
+    # -- System Configuration --
+    project_user: "www-data"               # User to own the project files (e.g., www-data for Nginx/Apache)
+    project_group: "www-data"              # Group to own the project files
+    python_package: "python3"              # Python package name for your OS
+    pip_package: "python3-pip"             # Pip package name for your OS
+
   tasks:
-    - name: Install pip3
-      ansible.builtin.apt:
-        name: python3-pip
-        update_cache: yes
-        state: latest
-    - name: Install mkdocs
-      ansible.builtin.shell: pip3 install mkdocs
+    - name: 1. Install System Dependencies (Python and Pip) 📦
+      ansible.builtin.package:
+        name:
+          - "{{ python_package }}"
+          - "{{ pip_package }}"
+        state: present
+
+    - name: 2. Install MkDocs and Material Theme via Pip 🐍
+      ansible.builtin.pip:
+        name:
+          - "mkdocs"
+          - "mkdocs-material" # The package name for the Material theme
+        state: present
+
+    - name: 3. Create Project Root Directory 📂
+      ansible.builtin.file:
+        path: "{{ mkdocs_project_path }}"
+        state: directory
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0755'
+
+    - name: 4. Create the 'docs' subdirectory for markdown files
+      ansible.builtin.file:
+        path: "{{ mkdocs_project_path }}/docs"
+        state: directory
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0755'
+
+    - name: 5. Create a default index.md file ✍️
+      ansible.builtin.copy:
+        dest: "{{ mkdocs_project_path }}/docs/index.md"
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0644'
+        content: |
+          # Welcome to {{ mkdocs_project_name }}!
+
+          This is the home page for your new documentation site.
+
+          - Edit this file in `docs/index.md`.
+          - Configure your site in `mkdocs.yml`.
+
+    - name: 6. Create the mkdocs.yml configuration file ⚙️
+      ansible.builtin.copy:
+        dest: "{{ mkdocs_project_path }}/mkdocs.yml"
+        owner: "{{ project_user }}"
+        group: "{{ project_group }}"
+        mode: '0644'
+        content: |
+          # Site Configuration
+          site_name: "{{ mkdocs_project_name }}"
+          site_url: "https://docs.example.com/" # Change this to your actual URL
+
+          # Theme Configuration
+          theme:
+            name: "{{ mkdocs_theme }}"
+            palette:
+              # Light mode
+              - scheme: default
+                toggle:
+                  icon: material/brightness-7
+                  name: Switch to dark mode
+              # Dark mode
+              - scheme: slate
+                toggle:
+                  icon: material/brightness-4
+                  name: Switch to light mode
+            features:
+              - navigation.tabs
+              - navigation.sections
+              - toc.integrate
+              - navigation.top
+              - search.suggest
+              - search.highlight
+              - content.tabs.link
+
+          # Extensions
+          markdown_extensions:
+            - pymdownx.highlight:
+                anchor_linenums: true
+            - pymdownx.inlinehilite
+            - pymdownx.snippets
+            - admonition
+            - pymdownx.details
+            - pymdownx.superfences
+
+    - name: 7. Build the static site from markdown files 🚀
+      ansible.builtin.command:
+        cmd: "mkdocs build"
+        chdir: "{{ mkdocs_project_path }}"
+        creates: "{{ mkdocs_project_path }}/site/index.html" # Makes this task idempotent
+      become: no # Run this as the current user, not root
+      changed_when: true # Always report this as a change when it runs
+      notify: report_build_status
+
+  # --- Handlers Section ---
+  # This block contains tasks that only run when notified by another task.
+  handlers:
+    - name: report_build_status
+      ansible.builtin.debug:
+        msg: "✅ MkDocs site was successfully built in {{ mkdocs_project_path }}/site/"

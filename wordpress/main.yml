@@ -1,0 +1,184 @@
+---
+- name: Deploy WordPress on a LAMP Server
+  hosts: all
+  become: yes
+  vars:
+    # --- General Settings ---
+    remote_user: "your_remote_user"      # Change this to your sudo user on the target
+    domain_name: "your_domain.com"       # Change this to your domain or server IP
+    project_root: "/var/www/html"
+
+    # --- MariaDB/MySQL Settings ---
+    db_name: "wordpress_db"
+    db_user: "wordpress_user"
+
+  vars_prompt:
+    - name: "mariadb_root_password"
+      prompt: "Enter the desired MariaDB root password"
+      private: yes
+    - name: "db_password"
+      prompt: "Enter the password for the WordPress database user"
+      private: yes
+
+  tasks:
+    # --- 1. System Update and Prereqs ---
+    - name: "Update apt cache and install prerequisites"
+      apt:
+        name:
+          - python3-pymysql
+        state: present
+        update_cache: yes
+
+    # --- 2. Apache Setup ---
+    - name: "Install Apache web server"
+      apt:
+        name: apache2
+        state: present
+
+    - name: "Enable Apache rewrite module"
+      apache2_module:
+        name: rewrite
+        state: present
+      notify: Restart Apache
+
+    - name: "Configure Apache to host WordPress"
+      template:
+        src: |
+          <VirtualHost *:80>
+              ServerAdmin webmaster@localhost
+              ServerName {{ domain_name }}
+              DocumentRoot {{ project_root }}
+
+              <Directory {{ project_root }}>
+                  Options Indexes FollowSymLinks
+                  AllowOverride All
+                  Require all granted
+              </Directory>
+
+              ErrorLog ${APACHE_LOG_DIR}/error.log
+              CustomLog ${APACHE_LOG_DIR}/access.log combined
+          </VirtualHost>
+        dest: /etc/apache2/sites-available/000-default.conf
+      notify: Restart Apache
+
+    # --- 3. PHP Installation ---
+    - name: "Install PHP and required extensions for WordPress"
+      apt:
+        name:
+          - php
+          - libapache2-mod-php
+          - php-mysql
+          - php-curl
+          - php-gd
+          - php-mbstring
+          - php-xml
+          - php-xmlrpc
+          - php-soap
+          - php-intl
+          - php-zip
+        state: present
+      notify: Restart Apache
+
+    # --- 4. MariaDB (MySQL) Setup ---
+    - name: "Install MariaDB server"
+      apt:
+        name: mariadb-server
+        state: present
+
+    - name: "Start and enable MariaDB service"
+      service:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    - name: "Set the MariaDB root password for the first time"
+      mysql_user:
+        name: root
+        password: "{{ mariadb_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        check_implicit_admin: yes
+        host: localhost
+
+    - name: "Create MariaDB config for root to allow login"
+      template:
+        src: |
+          [client]
+          user=root
+          password={{ mariadb_root_password }}
+        dest: /root/.my.cnf
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: "Remove anonymous MariaDB users"
+      mysql_user:
+        name: ''
+        host_all: yes
+        state: absent
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+
+    - name: "Remove the MariaDB test database"
+      mysql_db:
+        name: test
+        state: absent
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+
+    - name: "Create the WordPress database"
+      mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+
+    - name: "Create the WordPress database user"
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+
+    # --- 5. WordPress Deployment ---
+    - name: "Download and unpack the latest WordPress"
+      unarchive:
+        src: https://wordpress.org/latest.tar.gz
+        dest: /tmp/
+        remote_src: yes
+        creates: /tmp/wordpress/
+
+    - name: "Move WordPress files to the project root"
+      copy:
+        src: /tmp/wordpress/
+        dest: "{{ project_root }}/"
+        remote_src: yes
+        owner: www-data
+        group: www-data
+        mode: preserve
+      args:
+        creates: "{{ project_root }}/wp-config.php"
+
+    - name: "Create wp-config.php from template"
+      template:
+        src: wp-config.php.j2
+        dest: "{{ project_root }}/wp-config.php"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: "Set correct ownership and permissions for the project root"
+      file:
+        path: "{{ project_root }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+        state: directory
+
+  # --- Handlers ---
+  handlers:
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted

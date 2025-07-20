@@ -1,0 +1,273 @@
+#!/bin/bash
+
+# Nginx Configuration Generator
+# This script generates a basic Nginx server block configuration file for a given domain.
+# It supports both HTTP and HTTPS, with placeholders for Let's Encrypt.
+
+# --- Configuration Variables ---
+NGINX_SITES_AVAILABLE_DIR="/etc/nginx/sites-available"
+NGINX_SITES_ENABLED_DIR="/etc/nginx/sites-enabled"
+WEB_ROOT_DIR="/var/www"
+LOG_DIR="/var/log/nginx"
+SSL_CERT_DIR="/etc/letsencrypt/live" # Default Let's Encrypt certificate path
+
+# --- Functions ---
+
+# Function to display help message
+show_help() {
+    echo "Usage: $0 -d <domain.com> [-e <email@example.com>] [-p <port>] [-h]"
+    echo ""
+    echo "  -d <domain.com>    : The primary domain name (e.g., example.com)."
+    echo "                       This is a mandatory argument."
+    echo "  -e <email@example.com> : Email address for Let's Encrypt (Certbot)."
+    echo "                       If provided, a Certbot command will be suggested."
+    echo "  -p <port>          : The port Nginx should listen on for HTTP (default: 80)."
+    echo "                       Useful for testing or specific setups."
+    echo "  -n                 : Do not create the web root directory. Useful if it already exists."
+    echo "  -h                 : Display this help message."
+    echo ""
+    echo "This script will generate an Nginx configuration file in ${NGINX_SITES_AVAILABLE_DIR}/"
+    echo "and suggest steps to enable it and obtain SSL certificates."
+    echo ""
+    echo "Example:"
+    echo "  $0 -d mywebsite.com -e admin@mywebsite.com"
+    echo "  $0 -d test.local -p 8080"
+}
+
+# Function to validate a domain name (basic check)
+is_valid_domain() {
+    local domain="$1"
+    # Regex for basic domain validation (alphanumeric, hyphens, dots, at least one dot)
+    if [[ "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,6}$ ]]; then
+        return 0 # Valid
+    else
+        return 1 # Invalid
+    fi
+}
+
+# --- Main Script Logic ---
+
+DOMAIN=""
+EMAIL=""
+PORT="80"
+NO_CREATE_WEB_ROOT=false
+
+# Parse command-line arguments
+while getopts ":d:e:p:nh" opt; do
+    case ${opt} in
+        d )
+            DOMAIN="$OPTARG"
+            ;;
+        e )
+            EMAIL="$OPTARG"
+            ;;
+        p )
+            PORT="$OPTARG"
+            if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 )) || (( PORT > 65535 )); then
+                echo "Error: Invalid port number. Port must be a number between 1 and 65535." >&2
+                exit 1
+            fi
+            ;;
+        n )
+            NO_CREATE_WEB_ROOT=true
+            ;;
+        h )
+            show_help
+            exit 0
+            ;;
+        \? )
+            echo "Error: Invalid option: -$OPTARG" >&2
+            show_help
+            exit 1
+            ;;
+        : )
+            echo "Error: Option -$OPTARG requires an argument." >&2
+            show_help
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
+# Check if domain is provided
+if [ -z "$DOMAIN" ]; then
+    echo "Error: Domain name is mandatory. Use -d <domain.com>." >&2
+    show_help
+    exit 1
+fi
+
+# Validate domain format
+if ! is_valid_domain "$DOMAIN"; then
+    echo "Error: '$DOMAIN' is not a valid domain name format." >&2
+    exit 1
+fi
+
+# Derive paths
+CONFIG_FILE="${NGINX_SITES_AVAILABLE_DIR}/${DOMAIN}.conf"
+WEB_ROOT="${WEB_ROOT_DIR}/${DOMAIN}"
+
+echo "--- Nginx Configuration Generation ---"
+echo "Domain: $DOMAIN"
+echo "Configuration file: $CONFIG_FILE"
+echo "Web root: $WEB_ROOT"
+echo "HTTP Port: $PORT"
+[ -n "$EMAIL" ] && echo "Let's Encrypt Email: $EMAIL"
+echo "------------------------------------"
+
+# Create necessary directories if they don't exist
+echo "Ensuring necessary directories exist..."
+sudo mkdir -p "$NGINX_SITES_AVAILABLE_DIR" || { echo "Error: Could not create $NGINX_SITES_AVAILABLE_DIR. Check permissions." >&2; exit 1; }
+sudo mkdir -p "$NGINX_SITES_ENABLED_DIR" || { echo "Error: Could not create $NGINX_SITES_ENABLED_DIR. Check permissions." >&2; exit 1; }
+sudo mkdir -p "$LOG_DIR" || { echo "Error: Could not create $LOG_DIR. Check permissions." >&2; exit 1; }
+
+if [ "$NO_CREATE_WEB_ROOT" = false ]; then
+    echo "Creating web root directory: $WEB_ROOT"
+    sudo mkdir -p "$WEB_ROOT" || { echo "Error: Could not create $WEB_ROOT. Check permissions." >&2; exit 1; }
+    # Set appropriate ownership for web content (e.g., www-data)
+    # This might need adjustment based on your specific web server user/group
+    sudo chown -R $USER:www-data "$WEB_ROOT" # Grant your user ownership, but www-data group access
+    sudo chmod -R 775 "$WEB_ROOT"            # Allow read/write for owner/group, read for others
+    echo "Created web root $WEB_ROOT and set permissions."
+else
+    echo "Skipping web root directory creation as -n was specified."
+fi
+
+# --- Generate Nginx Configuration Content ---
+cat <<EOF | sudo tee "$CONFIG_FILE" > /dev/null
+# Nginx server block for ${DOMAIN}
+# Generated by Nginx Configuration Generator script
+
+server {
+    listen ${PORT};
+    listen [::]:${PORT};
+    server_name ${DOMAIN} www.${DOMAIN};
+
+    root ${WEB_ROOT};
+    index index.html index.htm index.nginx-debian.html;
+
+    access_log ${LOG_DIR}/${DOMAIN}-access.log;
+    error_log ${LOG_DIR}/${DOMAIN}-error.log;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    # Optional: Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Optional: uncomment for better performance for static assets
+    # location ~* \.(jpg|jpeg|gif|png|ico|css|js)$ {
+    #     expires 30d;
+    #     log_not_found off;
+    # }
+
+    # Enable Gzip compression (optional)
+    # gzip on;
+    # gzip_vary on;
+    # gzip_proxied any;
+    # gzip_comp_level 6;
+    # gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+}
+
+# --- HTTPS Configuration (for Let's Encrypt) ---
+# This block will handle redirection from HTTP to HTTPS and serve content over HTTPS.
+# It's commented out initially and will be uncommented/modified by Certbot.
+
+# server {
+#     listen 443 ssl http2;
+#     listen [::]:443 ssl http2;
+#     server_name ${DOMAIN} www.${DOMAIN};
+
+#     root ${WEB_ROOT};
+#     index index.html index.htm index.nginx-debian.html;
+
+#     access_log ${LOG_DIR}/${DOMAIN}-ssl-access.log;
+#     error_log ${LOG_DIR}/${DOMAIN}-ssl-error.log;
+
+#     ssl_certificate ${SSL_CERT_DIR}/${DOMAIN}/fullchain.pem;
+#     ssl_certificate_key ${SSL_CERT_DIR}/${DOMAIN}/privkey.pem;
+
+#     include /etc/letsencrypt/options-ssl-nginx.conf; # Managed by Certbot
+#     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;   # Managed by Certbot
+
+#     location / {
+#         try_files \$uri \$uri/ =404;
+#     }
+
+#     # Optional: Deny access to hidden files
+#     location ~ /\. {
+#         deny all;
+#         access_log off;
+#         log_not_found off;
+#     }
+# }
+
+# --- HTTP to HTTPS Redirection (for Let's Encrypt) ---
+# This block will redirect all HTTP traffic to HTTPS after SSL is set up.
+# It's commented out initially and will be uncommented/modified by Certbot.
+
+# server {
+#     if (\$host = www.${DOMAIN}) {
+#         return 301 https://www.${DOMAIN}\$request_uri;
+#     } # managed by Certbot
+
+#     if (\$host = ${DOMAIN}) {
+#         return 301 https://${DOMAIN}\$request_uri;
+#     } # managed by Certbot
+
+
+#     listen 80;
+#     listen [::]:80;
+#     server_name ${DOMAIN} www.${DOMAIN};
+#     return 404; # managed by Certbot
+# }
+EOF
+
+echo "Nginx configuration file created at: $CONFIG_FILE"
+
+# --- Next Steps / Instructions ---
+echo ""
+echo "--- Next Steps ---"
+echo "1. **Enable the site:** Create a symlink from sites-available to sites-enabled:"
+echo "   sudo ln -s ${CONFIG_FILE} ${NGINX_SITES_ENABLED_DIR}/"
+echo ""
+echo "2. **Test Nginx configuration:** Check for syntax errors before restarting:"
+echo "   sudo nginx -t"
+echo ""
+echo "3. **Reload Nginx:** Apply the new configuration:"
+echo "   sudo systemctl reload nginx"
+echo "   (or sudo systemctl restart nginx if reload fails or for major changes)"
+echo ""
+
+if [ -n "$EMAIL" ]; then
+    echo "4. **Obtain SSL certificate with Certbot (recommended):**"
+    echo "   Install Certbot (if not already installed):"
+    echo "     sudo apt update"
+    echo "     sudo apt install certbot python3-certbot-nginx"
+    echo ""
+    echo "   Then run Certbot to obtain and install the certificate:"
+    echo "   sudo certbot --nginx -d ${DOMAIN} -d www.${DOMAIN} --agree-tos --no-eff-email --staple-ocsp --email ${EMAIL}"
+    echo "   (The --no-eff-email flag is often used to opt out of EFF marketing emails.)"
+    echo "   Certbot will automatically modify the Nginx configuration to enable HTTPS."
+    echo ""
+else
+    echo "4. **(Optional) Obtain SSL certificate:**"
+    echo "   If you need HTTPS, consider using Let's Encrypt with Certbot. Example command:"
+    echo "   sudo certbot --nginx -d ${DOMAIN} -d www.${DOMAIN} --agree-tos --no-eff-email --email your@email.com"
+    echo "   Remember to adjust the commented out HTTPS block in ${CONFIG_FILE} after obtaining certificates."
+    echo ""
+fi
+
+echo "5. **Place your website content:**"
+echo "   Create your website files (e.g., index.html) inside: ${WEB_ROOT}"
+echo ""
+echo "Remember to open ports 80 (HTTP) and 443 (HTTPS) in your firewall if you have one (e.g., ufw)."
+echo "Example for UFW:"
+echo "   sudo ufw allow 'Nginx Full'"
+echo "   sudo ufw enable"
+echo ""
+echo "Script finished."

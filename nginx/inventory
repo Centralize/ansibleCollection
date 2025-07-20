@@ -1,0 +1,2 @@
+[newserver]
+nginx    ansible_host=192.168.78.166

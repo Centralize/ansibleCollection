@@ -1,0 +1,141 @@
+---
+# ansible_nginx_config_deploy.yml
+#
+# A single-file Ansible playbook to deploy an Nginx configuration script,
+# generate Nginx configurations, and manage Nginx services.
+#
+# This playbook expects the 'create_nginx_conf.sh' script to be available locally
+# at the path specified in the 'script_local_path' variable.
+#
+# Usage:
+# ansible-playbook -i your_inventory.ini nginx_config_deploy.yml \
+#   -e "domain=yourdomain.com email=your@email.com"
+#
+# For testing on a custom port without Certbot:
+# ansible-playbook -i your_inventory.ini nginx_config_deploy.yml \
+#   -e "domain=test.local port=8080 skip_certbot=true"
+#
+# To skip web root creation:
+# ansible-playbook -i your_inventory.ini nginx_config_deploy.yml \
+#   -e "domain=yourdomain.com email=your@email.com skip_web_root_creation=true"
+
+- name: Deploy Nginx Configuration Script and Configure Nginx
+  hosts: all # Or a specific group like 'nginx_servers'
+  become: yes # Run tasks with sudo/root privileges
+
+  # --- Variables Section ---
+  vars:
+    # Path to your local Bash script (create_nginx_conf.sh)
+    script_local_path: "./create_nginx_conf.sh"
+    # Destination path on the remote server for the script
+    script_remote_path: "/usr/local/bin/create_nginx_conf.sh"
+
+    # --- Domain-specific Variables (Override with -e) ---
+    domain: "wd3.opnlab.dk" # MANDATORY: e.g., "example.com"
+    email: "mkaas@openlab.dk"  # OPTIONAL: e.g., "webmaster@example.com" (for Certbot)
+    port: "80" # OPTIONAL: HTTP listening port, default 80
+    skip_certbot: true # Set to true to skip Certbot execution
+    skip_web_root_creation: false # Set to true to skip web root creation by the bash script
+
+    # --- Nginx Paths (ensure these match your script/environment) ---
+    nginx_sites_available_dir: "/etc/nginx/sites-available"
+    nginx_sites_enabled_dir: "/etc/nginx/sites-enabled"
+    nginx_conf_file: "{{ nginx_sites_available_dir }}/{{ domain }}.conf"
+    nginx_symlink_file: "{{ nginx_sites_enabled_dir }}/{{ domain }}.conf"
+
+  pre_tasks:
+    - name: Validate required 'domain' variable
+      fail:
+        msg: "The 'domain' variable must be set. Use -e 'domain=yourdomain.com'"
+      when: domain | length == 0
+
+  tasks:
+    - name: Ensure Nginx is installed
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: yes # Ensure package cache is updated
+      when: ansible_os_family == "Debian" # Specific for Debian/Ubuntu
+      # Add similar tasks for other distributions if needed (e.g., yum for RHEL/CentOS)
+      # - name: Ensure Nginx is installed (RedHat)
+      #   ansible.builtin.yum:
+      #     name: nginx
+      #     state: present
+      #   when: ansible_os_family == "RedHat"
+
+    - name: Ensure Certbot and Nginx plugin are installed (if not skipping Certbot)
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - certbot
+        - python3-certbot-nginx
+      when: not skip_certbot and ansible_os_family == "Debian"
+
+    - name: Transfer the Nginx configuration generation script
+      ansible.builtin.copy:
+        src: "{{ script_local_path }}"
+        dest: "{{ script_remote_path }}"
+        mode: '0755' # Make it executable
+        owner: root
+        group: root
+
+    - name: Generate Nginx configuration using the script
+      ansible.builtin.command: >
+        {{ script_remote_path }} -d {{ domain }}
+        {% if email | length > 0 %} -e {{ email }} {% endif %}
+        {% if port != "80" %} -p {{ port }} {% endif %}
+        {% if skip_web_root_creation %} -n {% endif %}
+      args:
+        creates: "{{ nginx_conf_file }}" # Idempotency: only run if the conf file doesn't exist
+      register: script_output
+      changed_when: "script_output.rc == 0 and 'Nginx configuration file created' in script_output.stdout"
+      # Display output for debugging/verification
+    - name: Display script output (for debugging)
+      debug:
+        msg: "{{ script_output.stdout }}"
+      when: script_output is defined and script_output.stdout is defined
+
+    - name: Enable the Nginx site (create symlink)
+      ansible.builtin.file:
+        src: "{{ nginx_conf_file }}"
+        dest: "{{ nginx_symlink_file }}"
+        state: link # Ensure it's a symlink
+      notify: Check and Reload Nginx
+
+    - name: Remove default Nginx site (if it exists and is enabled)
+      ansible.builtin.file:
+        path: "{{ nginx_sites_enabled_dir }}/default"
+        state: absent
+      notify: Check and Reload Nginx
+
+    - name: Run Certbot to obtain SSL certificate and configure Nginx
+      ansible.builtin.command: >
+        certbot --nginx -d {{ domain }} -d www.{{ domain }} --agree-tos --no-eff-email --staple-ocsp --email {{ email }}
+      args:
+        # Certbot modifies the file, so 'creates' is tricky. Check for existence of certs.
+        # This will run every time if certs aren't there or are expired.
+        # For production, consider certbot --force-renewal for scheduled renewals or a dedicated cron job.
+        # For initial run, check if a dummy cert exists or final cert does.
+        creates: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+      when: not skip_certbot and email | length > 0 # Only run if email is provided and not skipped
+      # Certbot handles Nginx reload itself, so no notify here.
+      # Consider adding a specific handler if you want to ensure reload after certbot,
+      # but certbot usually does this for you.
+
+  handlers:
+    - name: Check and Reload Nginx
+      block:
+        - name: Test Nginx configuration syntax
+          ansible.builtin.command: nginx -t
+          register: nginx_test_output
+          changed_when: false
+          failed_when: nginx_test_output.rc != 0
+          # Ensure stderr is shown on error
+          args:
+            warn: no
+        - name: Reload Nginx service
+          ansible.builtin.systemd:
+            name: nginx
+            state: reloaded
+          when: nginx_test_output.rc == 0 # Only reload if test passed

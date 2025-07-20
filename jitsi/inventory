@@ -1,0 +1,2 @@
+[newserver]
+jitsi    ansible_host=192.168.68.222

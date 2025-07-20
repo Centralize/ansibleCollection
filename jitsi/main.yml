@@ -1,0 +1,214 @@
+---
+- name: Deploy Jitsi Meet
+  hosts: all # Define this in your Ansible inventory (e.g., inventory.ini)
+  become: yes          # Run tasks with sudo/root privileges
+  vars:
+    jitsi_domain: "meet.opnlab.dk"          # Your chosen Jitsi FQDN
+    jitsi_letsencrypt_email: "admin@opnlab.dk" # Email for Let's Encrypt notices
+    jitsi_enable_auth: true                      # Set to true to enable basic authentication for room creation
+    jitsi_admin_user: "admin"                    # Admin user for Prosody (if jitsi_enable_auth is true)
+    jitsi_admin_password: "88UndeadLavaBobs_" # Admin password (USE ANSIBLE VAULT FOR THIS IN PRODUCTION!)
+
+  pre_tasks:
+    - name: Ensure /usr/share/keyrings exists
+      ansible.builtin.file:
+        path: /usr/share/keyrings
+        state: directory
+        mode: '0755'
+
+  tasks:
+    - name: Update apt cache and upgrade packages
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+      tags: [ 'packages', 'update' ]
+
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ jitsi_domain }}"
+      tags: [ 'system' ]
+
+    - name: Add entry to /etc/hosts for the Jitsi domain
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ ansible_host }} {{ jitsi_domain }}"
+        state: present
+        regexp: '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+{{ jitsi_domain }}$' # Ensure idempotent update if IP changes
+      tags: [ 'system' ]
+
+    - name: Install Java (OpenJDK 17 JRE headless)
+      ansible.builtin.apt:
+        name: openjdk-17-jre-headless
+        state: present
+      tags: [ 'dependencies' ]
+
+    - name: Add Jitsi GPG key
+      ansible.builtin.get_url:
+        url: https://download.jitsi.org/jitsi-key.gpg.key
+        dest: /tmp/jitsi-key.gpg
+        mode: '0644' # Ensure correct permissions for the downloaded key
+      register: jitsi_key_download
+      tags: [ 'jitsi', 'repo' ]
+
+    - name: Add Jitsi keyring
+      # This task uses 'shell' because of the input/output redirection operators (< and >)
+      # which are interpreted by the shell, not by 'command' module directly.
+      ansible.builtin.shell: "gpg --dearmor < /tmp/jitsi-key.gpg > /usr/share/keyrings/jitsi-keyring.gpg"
+      args:
+        creates: /usr/share/keyrings/jitsi-keyring.gpg # Idempotency check: only run if the file doesn't exist
+      when: jitsi_key_download.changed # Only run if the key was newly downloaded or changed
+      tags: [ 'jitsi', 'repo' ]
+
+    - name: Add Jitsi repository to APT sources
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/jitsi-keyring.gpg] https://download.jitsi.org stable/"
+        state: present
+        filename: jitsi-stable # Creates /etc/apt/sources.list.d/jitsi-stable.list
+      tags: [ 'jitsi', 'repo' ]
+
+    - name: Update apt cache after adding Jitsi repo
+      ansible.builtin.apt:
+        update_cache: yes
+      tags: [ 'packages', 'jitsi' ]
+
+    - name: Pre-seed debconf for Jitsi Meet domain
+      # This prevents an interactive prompt during Jitsi Meet installation
+      ansible.builtin.debconf:
+        name: jitsi-meet
+        question: jitsi-meet/jitsidomain
+        vtype: string
+        value: "{{ jitsi_domain }}"
+      when: ansible_os_family == 'Debian' # Only applies to Debian/Ubuntu systems
+      tags: [ 'jitsi' ]
+
+    - name: Install jitsi-meet package
+      ansible.builtin.apt:
+        name: jitsi-meet
+        state: present
+      tags: [ 'jitsi' ]
+
+    - name: Configure UFW - Allow OpenSSH
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+      tags: [ 'firewall' ]
+
+    - name: Configure UFW - Allow HTTP
+      community.general.ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+      tags: [ 'firewall' ]
+
+    - name: Configure UFW - Allow HTTPS
+      community.general.ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+      tags: [ 'firewall' ]
+
+    - name: Configure UFW - Allow Jitsi UDP ports (RTP/media streams)
+      community.general.ufw:
+        rule: allow
+        port: '10000:20000' # Jitsi VideoBridge typically uses this range dynamically
+        proto: udp
+      tags: [ 'firewall' ]
+
+    - name: Configure UFW - Allow Jitsi TCP ports (XMPP signaling)
+      community.general.ufw:
+        rule: allow
+        port: '5222,5347'
+        proto: tcp
+      tags: [ 'firewall' ]
+
+    - name: Configure UFW - Allow STUN/TURN (CoTURN, if running on same server)
+      community.general.ufw:
+        rule: allow
+        port: '3478'
+        proto: udp
+      tags: [ 'firewall' ]
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+        policy: deny # Set default policy to deny for security
+        direction: incoming
+      tags: [ 'firewall' ]
+
+    - name: Obtain Let's Encrypt SSL certificate
+      # This script will interactively ask for email if not provided by variable,
+      # but by providing domain and email, it should be non-interactive.
+      ansible.builtin.command: "/usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh {{ jitsi_domain }} {{ jitsi_letsencrypt_email }}"
+      args:
+        creates: "/etc/letsencrypt/live/{{ jitsi_domain }}/fullchain.pem" # Idempotency check for certificate
+      tags: [ 'ssl' ]
+
+    - name: Configure Jitsi Meet for authenticated room creation (optional block)
+      when: jitsi_enable_auth # Only execute this block if jitsi_enable_auth is true
+      block:
+        - name: Update Prosody config for internal plain authentication
+          ansible.builtin.lineinfile:
+            path: "/etc/prosody/conf.d/{{ jitsi_domain }}.cfg.lua"
+            regexp: '^\s*authentication = "token"$'
+            line: 'authentication = "internal_plain"'
+            backrefs: yes
+          notify: Restart Jitsi services
+
+        - name: Add restrict_room_creation to guest component in Prosody
+          ansible.builtin.lineinfile:
+            path: "/etc/prosody/conf.d/{{ jitsi_domain }}.cfg.lua"
+            insertafter: '^Component "guest\.{{ jitsi_domain }}" "muc"$'
+            line: '    restrict_room_creation = "{{ jitsi_domain }}"'
+            # Ensure storage is memory for guest component, if it's not already
+            regexp: '^(\s*)storage = ".*"$'
+            line: '\1storage = "memory"'
+            state: present
+            backrefs: yes
+          notify: Restart Jitsi services
+
+        - name: Enable Jicofo authentication
+          ansible.builtin.lineinfile:
+            path: /etc/jitsi/jicofo/jicofo.conf
+            regexp: '^#jicofo\.authentication\.enabled=.*$'
+            line: 'jicofo.authentication.enabled=true'
+            backrefs: yes
+          notify: Restart Jitsi services
+
+        - name: Set Jicofo authentication type to internal
+          ansible.builtin.lineinfile:
+            path: /etc/jitsi/jicofo/jicofo.conf
+            regexp: '^#jicofo\.authentication\.type=.*$'
+            line: 'jicofo.authentication.type=internal'
+            backrefs: yes
+          notify: Restart Jitsi services
+
+        - name: Set anonGuestMode to true in Jitsi Meet config.js
+          ansible.builtin.lineinfile:
+            path: "/etc/jitsi/meet/{{ jitsi_domain }}-config.js"
+            regexp: '^(.*)anonGuestMode: false,$'
+            line: '\1anonGuestMode: true,'
+            backrefs: yes
+          notify: Restart Jitsi services
+
+        - name: Create Jitsi admin user in Prosody
+          ansible.builtin.command: "prosodyctl register {{ jitsi_admin_user }} {{ jitsi_domain }} {{ jitsi_admin_password }}"
+          args:
+            creates: "/var/lib/prosody/{{ jitsi_domain }}/accounts/{{ jitsi_admin_user }}.dat" # Simple check if user account file exists
+          register: prosody_register_user
+          changed_when: prosody_register_user.rc == 0 and "registered" in prosody_register_user.stdout
+          failed_when: prosody_register_user.rc != 0 and "already exists" not in prosody_register_user.stderr
+          notify: Restart Jitsi services
+      tags: [ 'authentication' ]
+
+  handlers:
+    - name: Restart Jitsi services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - prosody
+        - jicofo
+        - jitsi-videobridge2
+        - nginx
+      listen: "Restart Jitsi services" # This handler will be triggered by multiple tasks

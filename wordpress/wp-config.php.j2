@@ -1,0 +1,35 @@
+<?php
+define( 'DB_NAME', '{{ db_name }}' );
+define( 'DB_USER', '{{ db_user }}' );
+define( 'DB_PASSWORD', '{{ db_password }}' );
+define( 'DB_HOST', 'localhost' );
+define( 'DB_CHARSET', 'utf8' );
+define( 'DB_COLLATE', '' );
+
+define('FS_METHOD', 'direct');
+
+/**#@+
+ * Authentication Unique Keys and Salts.
+ *
+ * Change these to different unique phrases!
+ * You can generate these using the {@link https://api.wordpress.org/secret-key/1.1/salt/ WordPress.org secret-key service}
+ */
+define('AUTH_KEY',         '}u-|Hf.`5MkSrT,wZ#CVG.Y5B3&s&n6x+dr-(e,2G{T+M7>NRsW6kv^iA2NI_oEy');
+define('SECURE_AUTH_KEY',  'H@ZGLhMZ|ew.~m(1{{+4_&NiaQC:k3i~29oe0J-[dtkkeQuAms1+en{_V3+^QtS,');
+define('LOGGED_IN_KEY',    '/9@U^<o[z%f=+j{~j.oirLGP[URMv}H+5%$>Y]6Dj.Gm5CXj9ifD+Uy5COefj>:}');
+define('NONCE_KEY',        'Z9?K#n)#6eAqtvM=&du6EDVapMXoP&3+:x{*W~B66Zn]*-O+Kb56OyuiD: baA$|');
+define('AUTH_SALT',        'Ijk|bAA-@Dm@T{RVRp0S+z4d:AR0bgua.H-##q:fP-uS)_DXKi`fmtfHTD1kI.<b');
+define('SECURE_AUTH_SALT', ']<Frc}4~2$33m{K;>sh;3-Pr9vvAg%DrjklBmkqG;U=WDl?m6n3.02u.?E.H#SO1');
+define('LOGGED_IN_SALT',   '03p*8jUS#b;nw1t?C|,7wD)BbqBP3d5bo;tip^ WxN3G[t5OVtr3x$Wc!!zXo+$V');
+define('NONCE_SALT',       '<J:+7{g%vo$wb/;#8~Wbq!n_ixTSU^wZmH5ni.Js5/-dt)?v.`M.d79H6d5fCW5c');
+/**#@-*/
+
+$table_prefix = 'wp_';
+
+define( 'WP_DEBUG', false );
+
+if ( ! defined( 'ABSPATH' ) ) {
+        define( 'ABSPATH', __DIR__ . '/' );
+}
+
+require_once ABSPATH . 'wp-settings.php';

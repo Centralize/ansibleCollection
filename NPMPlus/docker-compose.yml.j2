@@ -1,0 +1,38 @@
+# docker-compose.yml.j2
+version: '3.8'
+
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager-arm64:{{ npm_version }}' # Use 'jc21/nginx-proxy-manager:{{ npm_version }}' for x86/amd64
+    container_name: npm_app
+    restart: unless-stopped
+    ports:
+      - '80:80'    # HTTP
+      - '443:443'  # HTTPS
+      - '81:81'    # NPM Web UI
+    volumes:
+      - {{ npm_data_dir }}:/data
+      - {{ npm_letsencrypt_dir }}:/etc/letsencrypt
+    environment:
+      DB_MYSQL_HOST: db
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: npm
+      DB_MYSQL_PASSWORD: "{{ npm_mysql_password }}" # IMPORTANT: CHANGE THIS TO A SECURE PASSWORD!
+      DB_MYSQL_DATABASE: npm
+
+  db:
+    image: 'mariadb:10.11' # A stable MariaDB version
+    container_name: npm_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "{{ npm_mysql_root_password }}" # IMPORTANT: CHANGE THIS TO A SECURE PASSWORD!
+      MYSQL_DATABASE: npm
+      MYSQL_USER: npm
+      MYSQL_PASSWORD: "{{ npm_mysql_password }}" # IMPORTANT: CHANGE THIS TO A SECURE PASSWORD!
+    volumes:
+      - {{ npm_db_dir }}:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

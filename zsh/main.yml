@@ -1,0 +1,64 @@
+---
+- name: Deploy Zsh and Oh My Zsh with Agnoster theme
+  hosts: all
+  become: yes
+  vars:
+    target_user: "mkaas" # By default, targets the user running the playbook
+
+  tasks:
+    - name: "BLOCK: Install necessary packages"
+      block:
+        - name: "Install zsh and git for Debian/Ubuntu"
+          ansible.builtin.apt:
+            name:
+              - zsh
+              - git
+            state: present
+            update_cache: yes
+          when: ansible_os_family == "Debian"
+
+        - name: "Install zsh and git for RedHat/CentOS/Fedora"
+          ansible.builtin.dnf:
+            name:
+              - zsh
+              - git
+            state: present
+          when: ansible_os_family == "RedHat"
+      rescue:
+        - name: "Fail if OS family is not supported"
+          ansible.builtin.fail:
+            msg: "This playbook does not support the {{ ansible_os_family }} distribution."
+
+    - name: "Set zsh as the default shell for the target user"
+      ansible.builtin.user:
+        name: "{{ target_user }}"
+        shell: /usr/bin/zsh
+      become: true
+
+    - name: "Check if Oh My Zsh is already installed"
+      ansible.builtin.stat:
+        path: "/home/{{ target_user }}/.oh-my-zsh"
+      register: oh_my_zsh_stat
+      become: false
+      tags:
+        - oh_my_zsh
+
+    - name: "Download and install Oh My Zsh"
+      ansible.builtin.shell:
+        cmd: 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
+      args:
+        creates: "/home/{{ target_user }}/.oh-my-zsh"
+      when: not oh_my_zsh_stat.stat.exists
+      become: false
+      tags:
+        - oh_my_zsh
+
+    - name: "Set the Agnoster theme in .zshrc"
+      ansible.builtin.lineinfile:
+        path: "/home/{{ target_user }}/.zshrc"
+        regexp: '^export ZSH_THEME=".*"$'
+        line: 'export ZSH_THEME="agnoster"'
+        backrefs: yes
+      become: false
+      tags:
+        - oh_my_zsh

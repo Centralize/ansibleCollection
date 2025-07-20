@@ -1,0 +1,100 @@
+---
+- name: Deploy Nginx Proxy Manager Plus (NPMPlus)
+  hosts: all
+  become: yes
+
+  vars:
+    npm_dir: /opt/npmplus
+    npm_data_dir: "{{ npm_dir }}/data"
+    npm_letsencrypt_dir: "{{ npm_dir }}/letsencrypt"
+    npm_db_dir: "{{ npm_dir }}/mariadb"
+    npm_version: 'latest'
+    # IMPORTANT: Adjust this image based on your server's architecture (amd64 or arm64)
+    npm_app_image: 'jc21/nginx-proxy-manager:{{ npm_version }}' # For x86/amd64 systems
+    # npm_app_image: 'jc21/nginx-proxy-manager-arm64:{{ npm_version }}' # For ARM64 systems
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - aptitude
+          - curl
+        state: present
+
+    - name: Check if Docker is installed
+      ansible.builtin.command: systemctl is-active docker
+      register: docker_status
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Install Docker via convenience script (if not installed)
+      ansible.builtin.shell: curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+      args:
+        creates: /usr/bin/docker
+      when: docker_status.rc != 0
+
+    - name: Ensure Docker daemon is running and enabled
+      ansible.builtin.systemd_service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Check if Docker Compose is installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/docker-compose # Check for V1 (symlinked or standalone)
+      register: docker_compose_binary_v1
+
+    - name: Check if Docker Compose V2 is installed (via 'docker compose')
+      ansible.builtin.command: docker compose version
+      register: docker_compose_v2_status
+      ignore_errors: true # Command might fail if not installed
+      changed_when: false
+
+    - name: Install Docker Compose (standalone binary / V1 path for compatibility)
+      ansible.builtin.get_url:
+        url: https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      when: not docker_compose_binary_v1.stat.exists and docker_compose_v2_status.rc != 0
+      # This task ensures *some* form of compose is available if V2 isn't by default.
+      # Docker's recommended way is often to install docker-compose-plugin which is v2.
+      # However, for robustness in various environments, having the standalone binary as a fallback is useful.
+
+    - name: Create NPMPlus directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      loop:
+        - "{{ npm_dir }}"
+        - "{{ npm_data_dir }}"
+        - "{{ npm_letsencrypt_dir }}"
+        - "{{ npm_db_dir }}"
+
+    - name: Create docker-compose.yml for NPMPlus
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ npm_dir }}/docker-compose.yml"
+        mode: '0644'
+      notify: Restart NPMPlus containers
+
+    - name: Ensure NPMPlus containers are running
+      community.docker.docker_compose_v2: # Changed module here
+        project_src: "{{ npm_dir }}"
+        state: present
+        build: never
+
+  handlers:
+    - name: Restart NPMPlus containers
+      community.docker.docker_compose_v2: # Changed module here
+        project_src: "{{ npm_dir }}"
+        state: present
+        restarted: yes
+        build: never
