@@ -1,0 +1,2 @@
+[newserver]
+gemini-cli    ansible_host=192.168.70.215

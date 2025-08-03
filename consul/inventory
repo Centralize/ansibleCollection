@@ -1,0 +1,2 @@
+[newserver]
+consul    ansible_host=IPADDRESS

@@ -1,0 +1,19 @@
+---
+# Common handlers used across roles
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: restart consul
+  systemd:
+    name: consul
+    state: restarted
+
+- name: restart network services
+  systemd:
+    name: "network-{{ item }}"
+    state: restarted
+  loop:
+    - gateway
+    - dns
+    - dhcp

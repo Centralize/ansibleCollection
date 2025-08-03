@@ -1,0 +1,31 @@
+---
+- name: Install monitoring tools
+  apt:
+    name:
+      - prometheus-node-exporter
+      - htop
+      - iotop
+      - nethogs
+    state: present
+
+- name: Configure log rotation
+  template:
+    src: network-services.logrotate.j2
+    dest: /etc/logrotate.d/network-services
+    mode: '0644'
+
+- name: Create monitoring cron jobs
+  cron:
+    name: "{{ item.name }}"
+    minute: "{{ item.minute }}"
+    hour: "{{ item.hour | default('*') }}"
+    job: "{{ item.job }}"
+    user: root
+  loop:
+    - name: "Health check"
+      minute: "*/5"
+      job: "{{ network_services.install_dir }}/scripts/health-check.sh"
+    - name: "Daily backup"
+      minute: "0"
+      hour: "2"
+      job: "{{ network_services.install_dir }}/scripts/backup.sh"

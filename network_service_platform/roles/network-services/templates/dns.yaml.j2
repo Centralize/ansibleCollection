@@ -1,0 +1,25 @@
+dns:
+  listen: "0.0.0.0:{{ network_config.dns.listen_port }}"
+  protocol: "udp"
+  
+zones:
+{% for zone in dns_zones | default([]) %}
+  - name: "{{ zone.name }}"
+    type: "{{ zone.type }}"
+    file: "{{ network_config.dns.zones_dir }}/{{ zone.file }}"
+{% endfor %}
+
+forwarders:
+{% for forwarder in dns_forwarders | default(['8.8.8.8:53', '1.1.1.1:53']) %}
+  - "{{ forwarder }}"
+{% endfor %}
+
+consul:
+  address: "127.0.0.1:8500"
+  service_name: "dns-service"
+
+logging:
+  level: "info"
+  format: "json"
+  output: "{{ network_services.log_dir }}/dns.log"
+

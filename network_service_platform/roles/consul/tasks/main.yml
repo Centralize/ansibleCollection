@@ -1,0 +1,64 @@
+---
+- name: Check if Consul is already installed
+  command: consul version
+  register: consul_installed
+  ignore_errors: yes
+  changed_when: false
+
+- name: Install Consul
+  block:
+    - name: Download Consul
+      get_url:
+        url: "https://releases.hashicorp.com/consul/{{ consul.version }}/consul_{{ consul.version }}_linux_amd64.zip"
+        dest: "/tmp/consul_{{ consul.version }}_linux_amd64.zip"
+
+    - name: Create consul binary directory
+      file:
+        path: /usr/local/bin
+        state: directory
+        mode: '0755'
+
+    - name: Extract Consul
+      unarchive:
+        src: "/tmp/consul_{{ consul.version }}_linux_amd64.zip"
+        dest: /usr/local/bin
+        remote_src: yes
+        owner: root
+        group: root
+        mode: '0755'
+  when: consul_installed.failed
+
+- name: Create Consul directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ consul.user }}"
+    group: "{{ consul.group }}"
+    mode: '0755'
+  loop:
+    - "{{ consul.data_dir }}"
+    - "{{ consul.config_dir }}"
+
+- name: Generate Consul configuration
+  template:
+    src: consul.json.j2
+    dest: "{{ consul.config_dir }}/consul.json"
+    owner: "{{ consul.user }}"
+    group: "{{ consul.group }}"
+    mode: '0640'
+  notify: restart consul
+
+- name: Create Consul systemd service
+  template:
+    src: consul.service.j2
+    dest: /etc/systemd/system/consul.service
+  notify:
+    - reload systemd
+    - restart consul
+
+- name: Start and enable Consul
+  systemd:
+    name: consul
+    state: started
+    enabled: yes
+    daemon_reload: yes

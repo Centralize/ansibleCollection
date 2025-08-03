@@ -1,0 +1,114 @@
+---
+- name: Install HashiCorp Consul
+  hosts: consul_servers
+  become: yes # This playbook requires root privileges
+  vars:
+    consul_version: "1.21.2+ent"
+    consul_filename: "consul_{{ consul_version }}_linux_amd64.zip"
+    consul_install_dir: "/opt/consul" # Or /usr/local/consul, depending on your preference
+    consul_binary_path: "/usr/local/bin/consul"
+    consul_user: "consul"
+    consul_group: "consul"
+    consul_config_dir: "/etc/consul.d"
+    consul_data_dir: "/opt/consul/data"
+    consul_log_dir: "/var/log/consul"
+
+  tasks:
+    - name: Ensure unzip is installed
+      ansible.builtin.apt: # For Debian/Ubuntu
+        name: unzip
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure unzip is installed
+      ansible.builtin.yum: # For RHEL/CentOS
+        name: unzip
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Create consul user and group
+      ansible.builtin.user:
+        name: "{{ consul_user }}"
+        comment: "Consul service user"
+        shell: /sbin/nologin
+        create_home: no
+        state: present
+
+    - name: Create Consul installation directory
+      ansible.builtin.file:
+        path: "{{ consul_install_dir }}"
+        state: directory
+        owner: "{{ consul_user }}"
+        group: "{{ consul_group }}"
+        mode: '0755'
+
+    - name: Create Consul data directory
+      ansible.builtin.file:
+        path: "{{ consul_data_dir }}"
+        state: directory
+        owner: "{{ consul_user }}"
+        group: "{{ consul_group }}"
+        mode: '0755'
+
+    - name: Create Consul configuration directory
+      ansible.builtin.file:
+        path: "{{ consul_config_dir }}"
+        state: directory
+        owner: "{{ consul_user }}"
+        group: "{{ consul_group }}"
+        mode: '0755'
+
+    - name: Create Consul log directory
+      ansible.builtin.file:
+        path: "{{ consul_log_dir }}"
+        state: directory
+        owner: "{{ consul_user }}"
+        group: "{{ consul_group }}"
+        mode: '0755'
+
+    - name: Copy Consul zip archive to remote server
+      ansible.builtin.copy:
+        src: "../files/{{ consul_filename }}"
+        dest: "/tmp/{{ consul_filename }}"
+        mode: '0644'
+
+    - name: Unarchive Consul on remote server
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ consul_filename }}"
+        dest: "{{ consul_install_dir }}"
+        remote_src: yes # Tells Ansible the source is on the remote machine
+        owner: "{{ consul_user }}"
+        group: "{{ consul_group }}"
+
+    - name: Move consul binary to /usr/local/bin
+      ansible.builtin.command: mv {{ consul_install_dir }}/consul {{ consul_binary_path }}
+      args:
+        creates: "{{ consul_binary_path }}" # Only run if the binary doesn't exist
+      # The 'creates' argument makes this task idempotent,
+      # meaning it won't fail if the file already exists.
+
+    - name: Set permissions on consul binary
+      ansible.builtin.file:
+        path: "{{ consul_binary_path }}"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Remove temporary Consul zip archive
+      ansible.builtin.file:
+        path: "/tmp/{{ consul_filename }}"
+        state: absent
+
+    - name: Create Consul systemd service file
+      ansible.builtin.template:
+        src: consul.service.j2 # We'll create this template next
+        dest: /etc/systemd/system/consul.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload systemd
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes

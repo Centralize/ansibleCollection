@@ -1,0 +1,41 @@
+---
+# Network Services Configuration
+network_services:
+  install_dir: "/opt/network-services"
+  config_dir: "/opt/network-services/configs"
+  data_dir: "/opt/network-services/data"
+  log_dir: "/opt/network-services/data/logs"
+  service_user: "network-services"
+  service_group: "network-services"
+
+# Consul Configuration
+consul:
+  version: "1.17.0"
+  user: "consul"
+  group: "consul"
+  data_dir: "/var/lib/consul"
+  config_dir: "/etc/consul.d"
+  datacenter: "{{ datacenter | default('dc1') }}"
+  encrypt_key: "WCVhpuB1NGizGWCVhpuB1NGizGWCVhpuB1NGizGWCVhpuB1NGizG_"
+    #encrypt_key: "{{ consul_encrypt_key }}"
+  
+# Service Versions
+service_versions:
+  go_version: "1.21.5"
+  consul_version: "1.17.0"
+
+# Network Configuration
+network_config:
+  dns:
+    listen_port: 53
+    zones_dir: "{{ network_services.data_dir }}/dns/zones"
+  dhcp:
+    listen_port: 67
+    lease_file: "{{ network_services.data_dir }}/dhcp/leases.db"
+  gateway:
+    listen_port: 8080
+
+# Security Settings
+security:
+  firewall_enabled: true
+  fail2ban_enabled: true

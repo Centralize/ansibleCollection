@@ -1,2 +1,2 @@
 [server]
-newserver		ansible_host=192.168.75.195
+scum		ansible_host=192.168.65.199

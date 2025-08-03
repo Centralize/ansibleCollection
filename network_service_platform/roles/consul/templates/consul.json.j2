@@ -1,0 +1,23 @@
+{
+  "datacenter": "{{ consul.datacenter }}",
+  "data_dir": "{{ consul.data_dir }}",
+  "log_level": "INFO",
+  "server": true,
+  {% if consul_node_role == 'bootstrap' %}
+  "bootstrap_expect": {{ consul_bootstrap_expect | default(1) }},
+  {% else %}
+  "retry_join": {{ consul_retry_join | to_json }},
+  {% endif %}
+  "bind_addr": "{{ ansible_default_ipv4.address }}",
+  "client_addr": "0.0.0.0",
+  "encrypt": "{{ consul.encrypt_key }}",
+  "ui_config": {
+    "enabled": true
+  },
+  "connect": {
+    "enabled": true
+  },
+  "ports": {
+    "grpc": 8502
+  }
+}

@@ -1,0 +1,55 @@
+---
+- name: Deploy Google Gemini CLI on Alpine Linux
+  hosts: all
+  become: true # Use become to run commands as root for package installation
+
+  tasks:
+    - name: Ensure Node.js and npm dependencies are installed on Alpine
+      ansible.builtin.apk:
+        name:
+          - nodejs # Node.js package on Alpine
+          - npm    # npm package on Alpine
+          - openssl # Often a dependency for Node.js modules, good to have
+          - ca-certificates # Essential for secure connections (HTTPS with npm)
+        update_cache: yes
+        state: present
+      # Node.js on Alpine usually includes npm. If not, 'npm' explicitly.
+      # `openssl` and `ca-certificates` are common prerequisites for Node.js applications
+      # interacting with external services via HTTPS, which Gemini CLI will do.
+
+    - name: Verify Node.js version (Gemini CLI requires Node.js v20 or higher)
+      ansible.builtin.command: node -v
+      register: node_version_check
+      changed_when: false
+
+    - name: Display Node.js version
+      ansible.builtin.debug:
+        msg: "Node.js version on {{ inventory_hostname }}: {{ node_version_check.stdout }}"
+
+    - name: Install Google Gemini CLI globally using npm
+      ansible.builtin.npm:
+        name: "@google/gemini-cli"
+        global: yes
+        state: latest
+      # `state: latest` ensures we get the most recent version.
+      # `global: yes` installs it system-wide so it's available in the PATH.
+
+    - name: Verify Gemini CLI installation
+      ansible.builtin.command: gemini --version
+      register: gemini_cli_version_check
+      changed_when: false
+      failed_when: gemini_cli_version_check.rc != 0 and 'command not found' not in gemini_cli_version_check.stderr
+
+    - name: Display Gemini CLI version
+      ansible.builtin.debug:
+        msg: "Gemini CLI version on {{ inventory_hostname }}: {{ gemini_cli_version_check.stdout }}"
+      when: gemini_cli_version_check.rc == 0
+
+    - name: Inform about API Key setup for Gemini CLI
+      ansible.builtin.debug:
+        msg: |
+          Gemini CLI has been installed.
+          To use it, you will need to set your GEMINI_API_KEY environment variable.
+          You can get an API key from Google AI Studio (https://aistudio.google.com/app/apikey).
+          For persistent access, add 'export GEMINI_API_KEY="AIzaSyBHFMq_xtbbVihS0YvWW_Wy0rWoUZUuBHU"' to your shell's profile (e.g., ~/.bashrc or ~/.profile).
+          Alternatively, create a .env file in ~/.gemini/ for global use or ./.gemini/ for project-specific use.

@@ -1,0 +1,37 @@
+---
+- name: Deploy Network Services Platform
+  hosts: network_servers
+  become: yes
+  vars_files:
+    - vars/main.yml
+    - vault/secrets.yml
+  
+  pre_tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+  roles:
+    - common
+    - consul
+    - network-services
+    - monitoring
+
+  post_tasks:
+    - name: Verify all services are running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - consul
+        - network-gateway
+        - network-dns
+        - network-dhcp
+      register: service_status
+
+    - name: Display service status
+      debug:
+        msg: "Service {{ item.item }} is {{ item.state }}"
+      loop: "{{ service_status.results }}"

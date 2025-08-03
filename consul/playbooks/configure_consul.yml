@@ -1,0 +1,44 @@
+---
+- name: Configure HashiCorp Consul
+  hosts: consul_servers
+  become: yes
+  vars:
+    consul_config_dir: "/etc/consul.d"
+    consul_data_dir: "/opt/consul/data"
+    consul_log_dir: "/var/log/consul"
+    consul_datacenter: "dc1"
+    consul_node_name: "{{ inventory_hostname }}" # Uses the hostname from inventory
+    consul_bind_addr: "{{ ansible_host }}" # Uses the IP address Ansible connects to
+    consul_server_mode: true # Set to false for client agents
+    consul_bootstrap_expect: 1 # For a single-node server, or 3/5 for a cluster
+    consul_retry_join: [] # Empty for initial single server, add IPs/hostnames for joining a cluster
+    # Example for retry_join:
+    # consul_retry_join:
+    #   - "192.168.1.10"
+    #   - "192.168.1.11"
+    #   - "192.168.1.12"
+    consul_ui: true # Enable Consul UI
+    consul_log_level: "INFO"
+
+  tasks:
+    - name: Create Consul server configuration file
+      ansible.builtin.template:
+        src: server_config.json.j2 # We'll create this template next
+        dest: "{{ consul_config_dir }}/server.json"
+        owner: consul
+        group: consul
+        mode: '0644'
+      notify: Restart consul
+
+    - name: Enable and start Consul service
+      ansible.builtin.systemd:
+        name: consul
+        enabled: yes
+        state: started
+        daemon_reload: yes # Ensure the service file is reloaded after installation
+
+  handlers:
+    - name: Restart consul
+      ansible.builtin.systemd:
+        name: consul
+        state: restarted

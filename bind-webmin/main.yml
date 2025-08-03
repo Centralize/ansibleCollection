@@ -1,0 +1,219 @@
+---
+- name: Deploy BIND9 and Webmin
+  hosts: all # Target host defined in your inventory (e.g., hosts.ini)
+  gather_facts: yes
+  become: yes # Run tasks with sudo/root privileges
+
+  # ---------------------------------------------------
+  # 1. Variables
+  #    (These can also be placed in group_vars/all.yml for a multi-file project,
+  #     but are included here for the "single file" request.)
+  # ---------------------------------------------------
+  vars:
+    # System Settings
+    system_timezone: Europe/Copenhagen
+    system_update_packages: true # Set to false if you don't want apt update/upgrade on every run
+    ufw_enabled: true
+    ufw_allow_ports:
+      - 22/tcp    # SSH
+      - 53/tcp    # DNS TCP (for zone transfers, large responses)
+      - 53/udp    # DNS UDP (for most queries)
+      - 10000/tcp # Webmin default port
+
+    # BIND9 Settings
+    bind_listen_ipv4_address: "0.0.0.0" # Listen on all IPv4 interfaces
+    bind_listen_ipv6_address: "::"      # Listen on all IPv6 interfaces (uncomment if server has IPv6)
+    bind_forwarders:                    # Upstream DNS servers for recursion
+      - 1.1.1.1 # Cloudflare
+      - 8.8.8.8 # Google
+    bind_default_email: "ns1.openlab.dk" # For SOA records (dot replaces @)
+    bind_test_zone_name: "opnlab.dk"     # Example forward zone name
+    bind_test_zone_ip_prefix: "192.168.64"        # Example IP prefix for reverse zone (e.g., 192.168.1.x)
+
+    # Webmin Settings
+    webmin_listen_address: "0.0.0.0" # Listen on all interfaces
+    webmin_port: 10000
+    webmin_admin_username: "admin"
+    webmin_admin_password: "{{ webmin_password | default('23GarageHestBogskab_') }}"
+    webmin_ssl: true # Enable SSL for Webmin access (self-signed by default)
+
+  # ---------------------------------------------------
+  # 2. Handlers (for service restarts when config changes)
+  # ---------------------------------------------------
+  handlers:
+    - name: Restart BIND9
+      ansible.builtin.service:
+        name: bind9
+        state: restarted
+        enabled: yes # Ensure it's enabled if it wasn't already
+
+    - name: Restart Webmin
+      ansible.builtin.service:
+        name: webmin
+        state: restarted
+        enabled: yes # Ensure it's enabled if it wasn't already
+
+  # ---------------------------------------------------
+  # 3. Tasks
+  # ---------------------------------------------------
+  tasks:
+    - name: Update apt cache and upgrade packages (if enabled)
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: yes
+      when: system_update_packages
+
+    - name: Set timezone
+      community.general.timezone:
+        name: "{{ system_timezone }}"
+
+    # --- UFW Firewall Setup ---
+    - name: Set up UFW firewall
+      community.general.ufw:
+        state: enabled
+      when: ufw_enabled
+
+    - name: Allow specified ports in UFW
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.split('/')[0] }}" # Extract port number (e.g., "22")
+        proto: "{{ item.split('/')[1] }}" # Extract protocol (e.g., "tcp")
+      loop: "{{ ufw_allow_ports }}"
+      when: ufw_enabled
+
+    # --- BIND9 Installation and Configuration ---
+    - name: Install BIND9 and related utilities
+      ansible.builtin.apt:
+        name:
+          - bind9
+          - bind9utils
+          - dnsutils
+        state: present
+
+    - name: Configure named.conf.options (forwarders, listen, allow-query)
+      ansible.builtin.template:
+        src: templates/bind_named_options.conf.j2
+        dest: /etc/bind/named.conf.options
+        mode: '0644'
+        owner: bind
+        group: bind
+      notify: Restart BIND9
+
+    - name: Configure named.conf.local (local zones)
+      ansible.builtin.template:
+        src: templates/bind_named_local.conf.j2
+        dest: /etc/bind/named.conf.local
+        mode: '0644'
+        owner: bind
+        group: bind
+      notify: Restart BIND9
+
+    - name: Create forward test zone file directory
+      ansible.builtin.file:
+        path: /etc/bind/zones
+        state: directory
+        owner: bind
+        group: bind
+        mode: '0755'
+
+    - name: Create forward test zone file ({{ bind_test_zone_name }})
+      ansible.builtin.template:
+        src: templates/bind_test_forward_zone.j2
+        dest: "/etc/bind/zones/db.{{ bind_test_zone_name }}"
+        mode: '0644'
+        owner: bind
+        group: bind
+      notify: Restart BIND9
+
+    - name: Create reverse test zone file ({{ bind_test_zone_ip_prefix }}.in-addr.arpa)
+      ansible.builtin.template:
+        src: templates/bind_test_reverse_zone.j2
+        # Correctly format reverse zone name (e.g., 1.168.192.in-addr.arpa)
+        dest: "/etc/bind/zones/db.{{ bind_test_zone_ip_prefix.split('.') | reverse | join('.') }}.in-addr.arpa"
+        mode: '0644'
+        owner: bind
+        group: bind
+      notify: Restart BIND9
+
+    - name: Ensure BIND9 service is running and enabled
+      ansible.builtin.service:
+        name: bind9
+        state: started
+        enabled: yes
+
+    # --- Webmin Installation and Configuration (using official script logic) ---
+    - name: Install prerequisites for Webmin repository
+      ansible.builtin.apt:
+        name:
+          - gnupg
+          - apt-transport-https
+        state: present
+
+    - name: Download Webmin GPG key
+      ansible.builtin.get_url:
+        url: https://download.webmin.com/jcameron-key.asc
+        dest: /tmp/jcameron-key.asc
+        mode: '0644'
+
+    - name: De-armor Webmin GPG key
+      ansible.builtin.command:
+        cmd: gpg --dearmor /tmp/jcameron-key.asc
+      register: dearmored_key
+      changed_when: false
+
+    - name: Add Webmin GPG key to apt keyring
+      ansible.builtin.copy:
+        content: "{{ dearmored_key.stdout_bin }}"
+        dest: /etc/apt/trusted.gpg.d/webmin.gpg
+        mode: '0644'
+
+    - name: Add Webmin repository
+      ansible.builtin.apt_repository:
+        repo: "deb https://download.webmin.com/download/repository stable contrib"
+        state: present
+        filename: webmin
+        update_cache: yes
+
+    - name: Install Webmin
+      ansible.builtin.apt:
+        name: webmin
+        state: present
+      notify: Restart Webmin
+
+    - name: Set Webmin listen address and port
+      ansible.builtin.lineinfile:
+        path: /etc/webmin/miniserv.conf
+        regexp: '^(bind|port)='
+        line: "{{ 'bind=' + webmin_listen_address if item == 'bind' else 'port=' + webmin_port | string }}"
+        state: present
+      loop:
+        - bind
+        - port
+      notify: Restart Webmin
+
+    - name: Configure Webmin SSL (if enabled)
+      ansible.builtin.lineinfile:
+        path: /etc/webmin/miniserv.conf
+        regexp: '^ssl='
+        line: "ssl={{ '1' if webmin_ssl else '0' }}"
+        state: present
+      notify: Restart Webmin
+
+    - name: Set Webmin admin password
+      ansible.builtin.shell: |
+        /usr/share/webmin/changepass.pl /etc/webmin {{ webmin_admin_username }} "{{ webmin_admin_password | quote }}"
+      args:
+        # This 'creates' check ensures the task only runs if the file doesn't exist,
+        # but 'changepass.pl' will always modify it.
+        # So we use changed_when: true to ensure Ansible reports a change.
+        creates: /etc/webmin/.passwd.{{ webmin_admin_username }} # A dummy file or a check based on Webmin's internal state
+      # A better idempotency check here might be to verify the hash in miniserv.users
+      # but for "super simple" this is often sufficient for initial setup.
+      changed_when: true
+      no_log: true # Prevent password from appearing in logs
+
+    - name: Ensure Webmin service is running and enabled
+      ansible.builtin.service:
+        name: webmin
+        state: started
+        enabled: yes

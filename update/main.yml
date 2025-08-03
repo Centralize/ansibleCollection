@@ -29,3 +29,4 @@
           - net-tools
           - whois
           - locate
+          - jq

@@ -1,0 +1,27 @@
+[Unit]
+Description=Consul Service Discovery
+Documentation=https://www.consul.io/
+Requires=network-online.target
+After=network-online.target
+ConditionFileNotEmpty={{ consul.config_dir }}/consul.json
+
+[Service]
+Type=notify
+User={{ consul.user }}
+Group={{ consul.group }}
+ExecStart=/usr/local/bin/consul agent -config-dir={{ consul.config_dir }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+LimitNOFILE=65536
+TimeoutStopSec=10
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths={{ consul.data_dir }}
+
+[Install]
+WantedBy=multi-user.target

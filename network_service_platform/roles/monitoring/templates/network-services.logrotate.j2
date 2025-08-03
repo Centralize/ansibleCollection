@@ -1,0 +1,12 @@
+{{ network_services.log_dir }}/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 {{ network_services.service_user }} {{ network_services.service_group }}
+    postrotate
+        systemctl reload network-gateway network-dns network-dhcp || true
+    endscript
+}

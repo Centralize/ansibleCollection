@@ -1,0 +1,96 @@
+---
+- name: Install required packages
+  apt:
+    name:
+      - curl
+      - wget
+      - unzip
+      - jq
+      - htop
+      - net-tools
+      - dnsutils
+      - build-essential
+      - git
+      - ufw
+    state: present
+
+- name: Create service users
+  user:
+    name: "{{ item.name }}"
+    system: yes
+    shell: /bin/false
+    home: "{{ item.home }}"
+    create_home: yes
+  loop:
+    - { name: "{{ network_services.service_user }}", home: "{{ network_services.install_dir }}" }
+    - { name: "{{ consul.user }}", home: "{{ consul.data_dir }}" }
+
+- name: Create directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ network_services.service_user }}"
+    group: "{{ network_services.service_group }}"
+    mode: '0755'
+  loop:
+    - "{{ network_services.install_dir }}"
+    - "{{ network_services.install_dir }}/bin"
+    - "{{ network_services.config_dir }}"
+    - "{{ network_services.data_dir }}"
+    - "{{ network_services.data_dir }}/dns/zones"
+    - "{{ network_services.data_dir }}/dhcp"
+    - "{{ network_services.log_dir }}"
+    - "{{ network_services.install_dir }}/scripts"
+
+- name: Install Go
+  block:
+    - name: Download Go
+      get_url:
+        url: "https://go.dev/dl/go{{ service_versions.go_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/go{{ service_versions.go_version }}.linux-amd64.tar.gz"
+
+    - name: Remove existing Go installation
+      file:
+        path: /usr/local/go
+        state: absent
+
+    - name: Extract Go
+      unarchive:
+        src: "/tmp/go{{ service_versions.go_version }}.linux-amd64.tar.gz"
+        dest: /usr/local
+        remote_src: yes
+
+    - name: Add Go to PATH
+      lineinfile:
+        path: /etc/profile
+        line: 'export PATH=$PATH:/usr/local/go/bin'
+        state: present
+
+- name: Configure firewall
+  block:
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+      when: security.firewall_enabled
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Allow network service ports
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+      loop:
+        - { port: "22", proto: "tcp" }    # SSH
+        - { port: "53", proto: "udp" }    # DNS
+        - { port: "53", proto: "tcp" }    # DNS
+        - { port: "67", proto: "udp" }    # DHCP
+        - { port: "8080", proto: "tcp" }  # Gateway
+        - { port: "8500", proto: "tcp" }  # Consul
+        - { port: "8600", proto: "udp" }  # Consul DNS
+      when: security.firewall_enabled

@@ -1,0 +1,12 @@
+// This file is managed by Ansible. Do not edit manually.
+// zone { ... };
+// Add any local zones here
+zone "{{ bind_test_zone_name }}" {
+    type master;
+    file "/etc/bind/zones/db.{{ bind_test_zone_name }}";
+};
+
+zone "{{ bind_test_zone_ip_prefix.split('.') | reverse | join('.') }}.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.{{ bind_test_zone_ip_prefix.split('.') | reverse | join('.') }}.in-addr.arpa";
+};

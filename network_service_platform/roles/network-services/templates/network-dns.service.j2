@@ -1,0 +1,74 @@
+[Unit]
+Description=Network DNS Service
+Documentation=https://github.com/your-org/network-services
+Requires=network-online.target consul.service
+After=network-online.target consul.service
+
+[Service]
+Type=simple
+User={{ network_services.service_user }}
+Group={{ network_services.service_group }}
+ExecStart={{ network_services.install_dir }}/bin/dns-service -config={{ network_services.config_dir }}/dns.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# Resource limits
+LimitNOFILE=8192
+LimitNPROC=4096
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths={{ network_services.data_dir }}/dns {{ network_services.log_dir }}
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# Network restrictions
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.0.0.0/8
+IPAddressAllow=172.16.0.0/12
+IPAddressAllow=192.168.0.0/16
+
+[Install]
+WantedBy=multi-user.target
+
+# roles/network-services/templates/health-check.sh.j2
+#!/bin/bash
+# Health check script for network services
+
+SERVICES=(
+    "consul"
+    "network-gateway"
+    "network-dns"
+    "network-dhcp"
+)
+
+FAILED_SERVICES=()
+
+for service in "${SERVICES[@]}"; do
+    if ! systemctl is-active --quiet "$service"; then
+        FAILED_SERVICES+=("$service")
+    fi
+done
+
+if [ ${#FAILED_SERVICES[@]} -eq 0 ]; then
+    echo "$(date): All services healthy"
+    exit 0
+else
+    echo "$(date): Failed services: ${FAILED_SERVICES[*]}"
+    
+    # Log to syslog
+    logger -p daemon.error "Network services health check failed: ${FAILED_SERVICES[*]}"
+    
+    # Optional: Send alert (customize as needed)
+    # echo "Service failure on $(hostname): ${FAILED_SERVICES[*]}" | mail -s "Service Alert" admin@example.com
+    
+    exit 1
+fi

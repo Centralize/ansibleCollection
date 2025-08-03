@@ -1,0 +1,21 @@
+{
+  "datacenter": "{{ consul_datacenter }}",
+  "data_dir": "{{ consul_data_dir }}",
+  "log_level": "{{ consul_log_level }}",
+  "node_name": "{{ consul_node_name }}",
+  "bind_addr": "{{ consul_bind_addr }}",
+  "client_addr": "0.0.0.0",
+  "ui_config": {
+    "enabled": {{ consul_ui | lower }}
+  },
+  "server": {{ consul_server_mode | lower }},
+  "bootstrap_expect": {{ consul_bootstrap_expect }}
+  {% if consul_retry_join is defined and consul_retry_join | length > 0 %}
+  ,
+  "retry_join": [
+    {% for ip in consul_retry_join %}
+    "{{ ip }}"{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+  {% endif %}
+}

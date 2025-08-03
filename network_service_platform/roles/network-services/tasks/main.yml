@@ -1,0 +1,86 @@
+---
+- name: Build network services
+  block:
+    - name: Copy source code
+      copy:
+        src: "{{ playbook_dir }}/../"
+        dest: "/tmp/network-services-src/"
+        owner: "{{ network_services.service_user }}"
+        group: "{{ network_services.service_group }}"
+
+    - name: Build services
+      shell: |
+        export PATH=$PATH:/usr/local/go/bin
+        cd /tmp/network-services-src
+        go mod tidy
+        go build -o {{ network_services.install_dir }}/bin/network-gateway ./cmd/gateway/
+        go build -o {{ network_services.install_dir }}/bin/dns-service ./cmd/dns-service/
+        go build -o {{ network_services.install_dir }}/bin/dhcp-service ./cmd/dhcp-service/
+        go build -o {{ network_services.install_dir }}/bin/nis-service ./cmd/nis-service/
+        go build -o {{ network_services.install_dir }}/bin/wins-service ./cmd/wins-service/
+      become_user: "{{ network_services.service_user }}"
+
+    - name: Set binary permissions
+      file:
+        path: "{{ network_services.install_dir }}/bin/{{ item }}"
+        owner: "{{ network_services.service_user }}"
+        group: "{{ network_services.service_group }}"
+        mode: '0755'
+      loop:
+        - network-gateway
+        - dns-service
+        - dhcp-service
+        - nis-service
+        - wins-service
+
+- name: Generate service configurations
+  template:
+    src: "{{ item }}.yaml.j2"
+    dest: "{{ network_services.config_dir }}/{{ item }}.yaml"
+    owner: "{{ network_services.service_user }}"
+    group: "{{ network_services.service_group }}"
+    mode: '0640'
+  loop:
+    - gateway
+    - dns
+    - dhcp
+    - nis
+    - wins
+  notify:
+    - restart network services
+
+- name: Create systemd service files
+  template:
+    src: "{{ item }}.service.j2"
+    dest: "/etc/systemd/system/network-{{ item }}.service"
+  loop:
+    - gateway
+    - dns
+    - dhcp
+    - nis
+    - wins
+  notify:
+    - reload systemd
+    - restart network services
+
+- name: Create management scripts
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ network_services.install_dir }}/scripts/{{ item }}"
+    owner: "{{ network_services.service_user }}"
+    group: "{{ network_services.service_group }}"
+    mode: '0755'
+  loop:
+    - health-check.sh
+    - backup.sh
+
+- name: Start and enable network services
+  systemd:
+    name: "network-{{ item }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  loop:
+    - gateway
+    - dns
+    - dhcp

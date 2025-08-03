@@ -1,0 +1,15 @@
+; This file is managed by Ansible. Do not edit manually.
+;
+; BIND data file for {{ bind_test_zone_name }}
+;
+$TTL    604800
+@       IN      SOA     ns1.{{ bind_test_zone_name }}. {{ bind_default_email }}. (
+                              3         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      ns1.{{ bind_test_zone_name }}.
+ns1     IN      A       {{ ansible_default_ipv4.address }}
+www     IN      A       {{ ansible_default_ipv4.address }}

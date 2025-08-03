@@ -1,0 +1,30 @@
+// This file is managed by Ansible. Do not edit manually.
+// options { ... };
+options {
+        directory "/var/cache/bind";
+
+        // If there is a firewall between you and nameservers you want
+        // to query, you may need to add some filter rules for the TCP ports
+        // from which nameservers were queried.
+        // See https://www.isc.org/bind9-compliance/
+
+        recursion yes; # enables recursive queries
+
+        listen-on { {{ bind_listen_ipv4_address }}; };
+        listen-on-v6 { {{ bind_listen_ipv6_address }}; };
+
+        allow-query { any; }; # allows queries from any IP (be careful for public servers)
+        allow-recursion { any; }; # allows recursion from any IP (be careful for public servers)
+
+
+        forwarders {
+        {% for forwarder in bind_forwarders %}
+                {{ forwarder }};
+        {% endfor %}
+        };
+        forward only;
+
+        dnssec-validation auto;
+
+        auth-nxdomain no;    # conform to RFC1035
+};
