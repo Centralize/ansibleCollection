@@ -15,11 +15,11 @@
       state: started
   - name: Add Kubernetes repository key
     ansible.builtin.get_url:
-      url: https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key
+      url: https://pkgs.k8s.io/core:/stable:/deb/Release.key
       dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
   - name: Add Kubernetes repository
     ansible.builtin.apt_repository:
-      repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /"
+      repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/deb/ /"
       state: present
   - name: Install Kubernetes tools (kubeadm)
     ansible.builtin.apt:

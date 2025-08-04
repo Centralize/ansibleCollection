@@ -5,8 +5,8 @@
   tasks:
   - name: Copy release file to host
     ansible.builtin.copy:
-      src: ./iventoy-1.0.20-linux-free.tar.gz
-      dest: /opt/iventoy-1.0.20-linux-free.tar.gz
+      src: ./iventoy-1.0.21-linux-free.tar.gz
+      dest: /opt/iventoy-1.0.21-linux-free.tar.gz
       owner: root
       group: root
       mode: '0644'
@@ -17,7 +17,7 @@
       remote_src: yes
   - name: Symlink
     ansible.builtin.file:
-      src: /opt/iventoy-1.0.20
+      src: /opt/iventoy-1.0.21
       dest: /opt/iventoy
       owner: root
       group: root
