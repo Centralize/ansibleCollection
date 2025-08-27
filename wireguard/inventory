@@ -1,0 +1,2 @@
+[newserver]
+wireguard    ansible_host=172.105.24.100

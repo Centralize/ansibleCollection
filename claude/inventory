@@ -1,0 +1,2 @@
+[newserver]
+claude    ansible_host=IPADDRESS

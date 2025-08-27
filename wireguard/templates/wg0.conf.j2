@@ -1,0 +1,17 @@
+[Interface]
+Address = {{ wireguard_server_vpn_ip }}/{{ wireguard_subnet.split('/')[1] }}
+ListenPort = {{ wireguard_server_listen_port }}
+PrivateKey = {{ server_private_key }}
+# Firewall regler: Tillad trafik og opsæt NAT
+PostUp = ufw route allow in on %i out on {{ ansible_default_ipv4.interface }}; ufw route allow in on {{ ansible_default_ipv4.interface }} out on %i
+PostUp = iptables -t nat -A POSTROUTING -s {{ wireguard_subnet }} -o {{ ansible_default_ipv4.interface }} -j MASQUERADE
+PostDown = ufw route delete allow in on %i out on {{ ansible_default_ipv4.interface }}; ufw route delete allow in on {{ ansible_default_ipv4.interface }} out on %i
+PostDown = iptables -t nat -D POSTROUTING -s {{ wireguard_subnet }} -o {{ ansible_default_ipv4.interface }} -j MASQUERADE
+
+# --- Klienter ---
+{% for client in wireguard_clients %}
+[Peer]
+# Client: {{ client.name }}
+PublicKey = {{ hostvars[inventory_hostname]['client_public_key_' ~ client.name] }}
+AllowedIPs = {{ client.vpn_ip }}
+{% endfor %}

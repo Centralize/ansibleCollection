@@ -1,35 +1,150 @@
 ---
-- name: Setup K8s
+- name: Setup K8s in LXC Container  
   hosts: k8s
   become: true
   tasks:
+  - name: Check if running in LXC container
+    ansible.builtin.stat:
+      path: /proc/1/environ
+    register: proc_environ
+
+  - name: Verify LXC environment
+    ansible.builtin.shell: cat /proc/1/environ | tr '\0' '\n' | grep container
+    register: container_check
+    ignore_errors: yes
+
   - name: Setup Docker
     ansible.builtin.apt:
       name: docker.io
       update_cache: yes
-      state: latest
+      state: present
+
   - name: Enable docker service
     ansible.builtin.service:
       name: docker
       enabled: yes
       state: started
-  - name: Add Kubernetes repository key
+
+  - name: Create keyrings directory
+    ansible.builtin.file:
+      path: /etc/apt/keyrings
+      state: directory
+      mode: '0755'
+
+  - name: Download Kubernetes repository key
     ansible.builtin.get_url:
-      url: https://pkgs.k8s.io/core:/stable:/deb/Release.key
-      dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      url: https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key
+      dest: /tmp/kubernetes-apt-keyring.gpg
+      mode: '0644'
+
+  - name: Convert and install GPG key
+    ansible.builtin.shell: |
+      gpg --dearmor < /tmp/kubernetes-apt-keyring.gpg > /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    args:
+      creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
   - name: Add Kubernetes repository
     ansible.builtin.apt_repository:
-      repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/deb/ /"
+      repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /"
       state: present
-  - name: Install Kubernetes tools (kubeadm)
+      update_cache: yes
+
+  - name: Install Kubernetes tools
     ansible.builtin.apt:
-      name: kubeadm
-      state: latest
-  - name: Install Kubernetes tools (kubelet)
-    ansible.builtin.apt:
+      name:
+        - kubeadm
+        - kubelet
+        - kubectl
+      state: present
+
+  - name: Hold Kubernetes packages
+    ansible.builtin.dpkg_selections:
+      name: "{{ item }}"
+      selection: hold
+    loop:
+      - kubeadm
+      - kubelet
+      - kubectl
+
+  - name: Disable swap (if present)
+    ansible.builtin.command: swapoff -a
+    ignore_errors: yes
+
+  - name: Remove swap from fstab (if present)
+    ansible.builtin.replace:
+      path: /etc/fstab
+      regexp: '^([^#].*?\sswap\s+sw\s+.*)
+      replace: '# \1'
+    ignore_errors: yes
+
+  # Skip kernel module loading in LXC - handled by host
+  - name: Skip br_netfilter module loading (LXC limitation)
+    ansible.builtin.debug:
+      msg: "Skipping br_netfilter module loading - must be loaded on LXC host"
+
+  # Skip sysctl modifications that may not work in LXC
+  - name: Attempt to set bridge-nf-call-iptables
+    ansible.posix.sysctl:
+      name: net.bridge.bridge-nf-call-iptables
+      value: '1'
+      sysctl_set: yes
+      state: present
+      reload: yes
+    ignore_errors: yes
+
+  - name: Attempt to set bridge-nf-call-ip6tables  
+    ansible.posix.sysctl:
+      name: net.bridge.bridge-nf-call-ip6tables
+      value: '1'
+      sysctl_set: yes
+      state: present
+      reload: yes
+    ignore_errors: yes
+
+  - name: Attempt to set ip_forward
+    ansible.posix.sysctl:
+      name: net.ipv4.ip_forward
+      value: '1'
+      sysctl_set: yes
+      state: present
+      reload: yes
+    ignore_errors: yes
+
+  - name: Create kubelet systemd drop-in directory
+    ansible.builtin.file:
+      path: /etc/systemd/system/kubelet.service.d
+      state: directory
+      mode: '0755'
+
+  - name: Configure kubelet for LXC environment
+    ansible.builtin.copy:
+      content: |
+        [Service]
+        Environment="KUBELET_EXTRA_ARGS=--fail-swap-on=false --cgroup-driver=systemd"
+      dest: /etc/systemd/system/kubelet.service.d/20-lxc.conf
+      mode: '0644'
+    notify: restart kubelet
+
+  - name: Display LXC configuration requirements
+    ansible.builtin.debug:
+      msg: |
+        IMPORTANT: For K8s in LXC to work, you need these LXC container settings:
+        
+        In your LXC config (/etc/pve/lxc/<vmid>.conf), add:
+        - lxc.apparmor.profile: unconfined
+        - lxc.cgroup.devices.allow: a
+        - lxc.cap.drop: 
+        - lxc.mount.auto: "proc:rw sys:rw"
+        
+        And on the Proxmox host, ensure these modules are loaded:
+        - modprobe br_netfilter
+        - modprobe overlay
+        
+        Also consider setting the container as privileged if issues persist.
+
+  handlers:
+  - name: restart kubelet
+    ansible.builtin.systemd:
       name: kubelet
-      state: latest
-  - name: Install Kubernetes tools (kubectl)
-    ansible.builtin.apt:
-      name: kubectl
-      state: latest
+      state: restarted
+      daemon_reload: yes

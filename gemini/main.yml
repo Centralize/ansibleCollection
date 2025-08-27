@@ -1,0 +1,48 @@
+---
+- hosts: newserver
+  become: true
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      package:
+        name:
+          - curl
+          - wget
+          - unzip
+        state: present
+
+    - name: Create gemini-cli directory
+      file:
+        path: /opt/gemini-cli
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Download gemini-cli binary
+      get_url:
+        url: "https://github.com/replit/gemini-cli/releases/latest/download/gemini-cli-linux-amd64"
+        dest: /opt/gemini-cli/gemini-cli
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Create symlink for gemini-cli in PATH
+      file:
+        src: /opt/gemini-cli/gemini-cli
+        dest: /usr/local/bin/gemini-cli
+        state: link
+
+    - name: Verify gemini-cli installation
+      command: gemini-cli --version
+      register: geminiVersion
+      changed_when: false
+
+    - name: Display gemini-cli version
+      debug:
+        msg: "gemini-cli installed successfully: {{ geminiVersion.stdout }}"

@@ -1,2 +1,2 @@
 [server]
-scum		ansible_host=192.168.65.199
+webdev_wg01		ansible_host=172.105.24.100

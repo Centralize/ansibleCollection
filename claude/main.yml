@@ -1,0 +1,76 @@
+---
+- hosts: newserver
+  become: true
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - unzip
+        state: present
+        
+    - name: Create claude user
+      user:
+        name: claude
+        system: yes
+        shell: /bin/bash
+        home: /opt/claude
+        create_home: yes
+        
+    - name: Download Claude CLI
+      get_url:
+        url: "https://github.com/anthropics/claude-code/releases/latest/download/claude-linux-x64"
+        dest: /tmp/claude-linux-x64
+        mode: '0755'
+        
+    - name: Install Claude CLI
+      copy:
+        src: /tmp/claude-linux-x64
+        dest: /usr/local/bin/claude
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: yes
+        
+    - name: Create Claude configuration directory
+      file:
+        path: /opt/claude/.config
+        state: directory
+        owner: claude
+        group: claude
+        mode: '0755'
+        
+    - name: Create systemd service for Claude
+      copy:
+        content: |
+          [Unit]
+          Description=Claude AI Assistant
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=claude
+          WorkingDirectory=/opt/claude
+          ExecStart=/usr/local/bin/claude
+          Restart=always
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/claude.service
+        mode: '0644'
+        
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+        
+    - name: Enable and start Claude service
+      systemd:
+        name: claude
+        enabled: yes
+        state: started

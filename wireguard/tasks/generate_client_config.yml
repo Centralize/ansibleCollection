@@ -1,0 +1,34 @@
+---
+- name: "Generate keys for {{ client.name }}"
+  block:
+    - name: "Generate {{ client.name }} private key"
+      ansible.builtin.command: "wg genkey"
+      register: client_private_key_cmd
+      changed_when: false
+      no_log: true
+
+    - name: "Generate {{ client.name }} public key"
+      ansible.builtin.command: "wg pubkey"
+      register: client_public_key_cmd
+      changed_when: false
+      args:
+        stdin: "{{ client_private_key_cmd.stdout }}"
+      no_log: true
+
+    - name: Store client keys as facts
+      ansible.builtin.set_fact:
+        client_private_key: "{{ client_private_key_cmd.stdout }}"
+        client_public_key: "{{ client_public_key_cmd.stdout }}"
+        cacheable: yes
+
+- name: "Create local directory for {{ client.name }} config"
+  ansible.builtin.file:
+    path: "client_configs/{{ client.name }}"
+    state: directory
+  delegate_to: localhost
+
+- name: "Generate {{ client.name }} config file"
+  ansible.builtin.template:
+    src: templates/client.conf.j2
+    dest: "client_configs/{{ client.name }}/{{ wireguard_interface }}.conf"
+  delegate_to: localhost

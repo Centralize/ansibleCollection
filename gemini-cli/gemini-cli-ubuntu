@@ -1,0 +1,44 @@
+---
+- name: Deploy Gemini CLI on Ubuntu 24.04
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install git and npm
+      ansible.builtin.apt:
+        name:
+          - git
+          - npm
+        state: present
+
+    - name: Clone gemini-cli repository
+      ansible.builtin.git:
+        repo: https://github.com/google-gemini/gemini-cli.git  # Assuming this is the correct repository URL
+        dest: /opt/gemini-cli
+        version: main  # Or a specific tag/branch if needed
+
+    - name: Install Python dependencies (if any)
+      ansible.builtin.pip:
+        requirements: /opt/gemini-cli/requirements.txt  # Assuming a requirements.txt file exists
+        executable: pip3
+      ignore_errors: yes # Ignore if requirements.txt doesn't exist
+
+    - name: Create a symbolic link for gemini-cli executable
+      ansible.builtin.file:
+        src: /opt/gemini-cli/gemini-cli.py  # Assuming the main script is gemini-cli.py
+        dest: /usr/local/bin/gemini-cli
+        state: link
+        force: yes
+
+    - name: Ensure gemini-cli is executable
+      ansible.builtin.file:
+        path: /usr/local/bin/gemini-cli
+        mode: '0755'
+
+    - name: Display success message
+      ansible.builtin.debug:
+        msg: "Gemini CLI deployed successfully!"

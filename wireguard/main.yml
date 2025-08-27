@@ -1,0 +1,109 @@
+---
+- name: Deploy WireGuard VPN Server
+  hosts: all
+  become: yes
+  vars:
+    wireguard_interface: "wg0"
+    wireguard_server_listen_port: 51820
+    wireguard_subnet: "10.100.100.0/24"
+    wireguard_server_vpn_ip: "10.100.100.1"
+    # Anvend faktum fra serveren, eller hardcode den offentlige IP/DNS-navn
+    wireguard_server_endpoint: "{{ ansible_default_ipv4.address }}"
+    wireguard_config_path: "/etc/wireguard"
+    # Definer dine klienter her. IP-adresser skal være unikke.
+    wireguard_clients:
+      - name: "klient_1"
+        vpn_ip: "10.100.100.2/32"
+      - name: "klient_2"
+        vpn_ip: "10.100.100.3/32"
+      - name: "mobil_telefon"
+        vpn_ip: "10.100.100.4/32"
+
+  tasks:
+    - name: Install WireGuard packages
+      ansible.builtin.package:
+        name: wireguard-tools
+        state: present
+      register: pkg_result
+      until: pkg_result is success
+      retries: 3
+      delay: 5
+
+    - name: Ensure WireGuard config directory exists
+      ansible.builtin.file:
+        path: "{{ wireguard_config_path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: Check for existing server private key
+      ansible.builtin.stat:
+        path: "{{ wireguard_config_path }}/private.key"
+      register: server_private_key_stat
+
+    - name: Generate server private key
+      ansible.builtin.command: "wg genkey > {{ wireguard_config_path }}/private.key"
+      args:
+        creates: "{{ wireguard_config_path }}/private.key"
+      changed_when: not server_private_key_stat.stat.exists
+      no_log: true
+
+    - name: Set permissions for server private key
+      ansible.builtin.file:
+        path: "{{ wireguard_config_path }}/private.key"
+        mode: '0600'
+
+    - name: Generate server public key
+      ansible.builtin.command: "wg pubkey < {{ wireguard_config_path }}/private.key"
+      register: server_public_key_cmd
+      changed_when: false
+      no_log: true
+
+    - name: Store server private key as fact
+      ansible.builtin.command: "cat {{ wireguard_config_path }}/private.key"
+      register: server_private_key_fact
+      changed_when: false
+      no_log: true
+
+    - name: Set server keys as facts
+      ansible.builtin.set_fact:
+        server_public_key: "{{ server_public_key_cmd.stdout }}"
+        server_private_key: "{{ server_private_key_fact.stdout }}"
+        cacheable: yes
+
+    - name: Generate client keys and configurations
+      ansible.builtin.include_tasks:
+        file: tasks/generate_client_config.yml
+      loop: "{{ wireguard_clients }}"
+      loop_control:
+        loop_var: client
+
+    - name: Create server configuration file from template
+      ansible.builtin.template:
+        src: templates/wg0.conf.j2
+        dest: "{{ wireguard_config_path }}/{{ wireguard_interface }}.conf"
+        owner: root
+        group: root
+        mode: '0600'
+      notify: Restart WireGuard
+
+    - name: Enable IP forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: yes
+        state: present
+        reload: yes
+
+    - name: Enable and start WireGuard service
+      ansible.builtin.systemd:
+        name: "wg-quick@{{ wireguard_interface }}"
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: Restart WireGuard
+      ansible.builtin.systemd:
+        name: "wg-quick@{{ wireguard_interface }}"
+        state: restarted
