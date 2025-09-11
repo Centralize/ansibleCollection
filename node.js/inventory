@@ -1,0 +1,2 @@
+[newserver]
+node.js    ansible_host=localhost

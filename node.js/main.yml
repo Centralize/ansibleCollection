@@ -1,0 +1,50 @@
+---
+- name: Deploy latest Node.js LTS
+  hosts: all
+  become: true
+  vars:
+    # Definer den major LTS version, du vil installere.
+    # Find de nuværende LTS versioner her: https://nodejs.org/
+    # Per september 2025 er v22 den nyeste, men v20 er LTS. Vi vælger LTS.
+    node_major_version: "22"
+
+  tasks:
+    - name: Ensure curl is present for repository setup
+      ansible.builtin.package:
+        name: curl
+        state: present
+
+    - name: Setup NodeSource repository for Debian/Ubuntu
+      ansible.builtin.shell:
+        cmd: "curl -fsSL https://deb.nodesource.com/setup_{{ node_major_version }}.x | bash -"
+      args:
+        # Denne 'creates' betingelse sikrer, at scriptet kun køres én gang.
+        # Det gør opgaven idempotent.
+        creates: /etc/apt/sources.list.d/nodesource.list
+      when: ansible_os_family == "Debian"
+      changed_when: true # Scriptet returnerer altid 0, så vi markerer det som ændret.
+
+    - name: Setup NodeSource repository for RHEL family
+      ansible.builtin.shell:
+        cmd: "curl -fsSL https://rpm.nodesource.com/setup_{{ node_major_version }}.x | bash -"
+      args:
+        # Denne 'creates' betingelse sikrer idempotens for Red Hat-baserede systemer.
+        creates: /etc/yum.repos.d/nodesource.repo
+      when: ansible_os_family == "RedHat"
+      changed_when: true # Samme logik som for Debian.
+
+    - name: Install Node.js
+      ansible.builtin.package:
+        name: nodejs
+        state: present
+        update_cache: true # Svarer til 'apt-get update' eller 'dnf check-update'.
+      
+    - name: Verify Node.js installation
+      ansible.builtin.command:
+        cmd: "node --version"
+      register: node_version_output
+      changed_when: false # En verifikationskommando skal aldrig rapportere en ændring.
+
+    - name: Display installed Node.js version
+      ansible.builtin.debug:
+        msg: "Node.js version {{ node_version_output.stdout }} is installed."

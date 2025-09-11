@@ -1,2 +1,3 @@
 [newserver]
-zsh    ansible_host=192.168.74.149
+webprod01    	ansible_host=192.168.74.149
+localhost	ansible_host=127.0.0.1
