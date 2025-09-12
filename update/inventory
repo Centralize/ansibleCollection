@@ -2,3 +2,4 @@
 webdev		ansible_host=172.105.24.100
 localhost	ansible_host=127.0.0.1
 webprod01	ansible_host=192.168.79.195
+mysql01		ansible_host=192.168.73.79

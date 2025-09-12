@@ -1,0 +1,127 @@
+---
+- name: Deploy Tor Hidden Service
+  hosts: tor_server
+  become: yes
+  vars:
+    ssh_port: 22
+    tor_or_port: 9001
+    local_web_port: 8080
+
+  tasks:
+    - name: Update APT cache and install required packages
+      ansible.builtin.apt:
+        name:
+          - tor
+          - nginx
+          - ufw
+        state: present
+        update_cache: yes
+      tags: [install]
+
+    - name: Configure Firewall (UFW)
+      block:
+        - name: Reset UFW to a known state
+          community.general.ufw:
+            state: reset
+        - name: Set default UFW policies to deny incoming
+          community.general.ufw:
+            direction: incoming
+            policy: deny
+        - name: Allow SSH connections
+          community.general.ufw:
+            rule: allow
+            port: "{{ ssh_port }}"
+            proto: tcp
+            comment: "Allow SSH access"
+        - name: Allow Tor ORPort
+          community.general.ufw:
+            rule: allow
+            port: "{{ tor_or_port }}"
+            proto: tcp
+            comment: "Allow Tor protocol traffic"
+        - name: Enable UFW
+          community.general.ufw:
+            state: enabled
+      tags: [firewall]
+
+    - name: Configure Nginx to listen on localhost only
+      block:
+        - name: Place a simple index file for testing
+          ansible.builtin.copy:
+            src: files/index.html
+            dest: /var/www/html/index.html
+        - name: Create Nginx server block for Tor service
+          ansible.builtin.template:
+            src: templates/nginx-tor.conf.j2
+            dest: /etc/nginx/sites-available/tor-hidden-service
+          notify: Restart Nginx
+        - name: Disable default Nginx site
+          ansible.builtin.file:
+            path: /etc/nginx/sites-enabled/default
+            state: absent
+          notify: Restart Nginx
+        - name: Enable the new Tor Nginx site
+          ansible.builtin.file:
+            src: /etc/nginx/sites-available/tor-hidden-service
+            dest: /etc/nginx/sites-enabled/tor-hidden-service
+            state: link
+          notify: Restart Nginx
+      tags: [nginx]
+
+    - name: Configure Tor Hidden Service
+      block:
+        - name: Ensure Hidden Service directory exists
+          ansible.builtin.file:
+            path: /var/lib/tor/hidden_service
+            state: directory
+            owner: debian-tor
+            group: debian-tor
+            mode: '0700'
+        - name: Configure torrc for hidden service
+          ansible.builtin.blockinfile:
+            path: /etc/tor/torrc
+            block: |
+              HiddenServiceDir /var/lib/tor/hidden_service/
+              HiddenServicePort 80 127.0.0.1:{{ local_web_port }}
+            marker: "# {mark} ANSIBLE MANAGED BLOCK FOR HIDDEN SERVICE"
+          notify: Restart Tor
+      tags: [tor]
+
+    - name: Ensure services are started and enabled
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - nginx
+        - tor
+      tags: [service]
+
+    - name: Wait for the Tor hostname file to be created
+      ansible.builtin.wait_for:
+        path: /var/lib/tor/hidden_service/hostname
+        state: present
+        timeout: 60
+      tags: [output]
+
+    - name: Read the .onion address
+      ansible.builtin.slurp:
+        src: /var/lib/tor/hidden_service/hostname
+      register: onion_hostname
+      tags: [output]
+
+    - name: Display the .onion address
+      ansible.builtin.debug:
+        msg: "✅ Tor Hidden Service er konfigureret. Din adresse er: {{ onion_hostname.content | b64decode | trim }}"
+      tags: [output]
+
+  handlers:
+    - name: Restart Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+
+    - name: Restart Tor
+      ansible.builtin.service:
+        name: tor
+        state: restarted

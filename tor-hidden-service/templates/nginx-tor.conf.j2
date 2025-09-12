@@ -1,0 +1,14 @@
+server {
+    # VIGTIGT: Lyt kun på localhost. Dette forhindrer direkte adgang fra internettet.
+    listen 127.0.0.1:{{ local_web_port }};
+    listen [::1]:{{ local_web_port }};
+
+    server_name _;
+
+    root /var/www/html;
+    index index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
