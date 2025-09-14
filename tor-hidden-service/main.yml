@@ -1,6 +1,6 @@
 ---
 - name: Deploy Tor Hidden Service
-  hosts: tor_server
+  hosts: tor_servers
   become: yes
   vars:
     ssh_port: 22

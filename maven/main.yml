@@ -1,0 +1,51 @@
+---
+- name: Deploy Apache Maven
+  hosts: all
+  become: yes
+  vars:
+    vars:
+    maven_version: "3.9.8"
+    java_package_debian: "openjdk-21-jdk"
+    java_package_redhat: "java-21-openjdk-devel"
+    maven_install_dir: "/opt"
+    # SHA512 checksum fra https://maven.apache.org/download.cgi
+    maven_checksum: "f23b3552a140f813959a72295323281711d95393430489b88210332617f69913197170138248a86a67a0752b07b1d97155685451296e568911c471581452a5a5"
+
+  tasks:
+    - name: Install Java (OpenJDK)
+      ansible.builtin.package:
+        name: "{{ java_package_debian if ansible_os_family == 'Debian' else java_package_redhat }}"
+        state: present
+        update_cache: yes
+      when: ansible_os_family == 'Debian' or ansible_os_family == 'RedHat'
+
+    - name: Download Apache Maven archive
+      ansible.builtin.get_url:
+        url: "https://archive.apache.org/dist/maven/maven-3/{{ maven_version }}/binaries/apache-maven-{{ maven_version }}-bin.tar.gz"
+        dest: "/tmp/apache-maven-{{ maven_version }}-bin.tar.gz"
+        checksum: "sha512:{{ maven_checksum }}"
+        mode: '0644'
+
+    - name: Unarchive Apache Maven
+      ansible.builtin.unarchive:
+        src: "/tmp/apache-maven-{{ maven_version }}-bin.tar.gz"
+        dest: "{{ maven_install_dir }}"
+        remote_src: yes
+        owner: root
+        group: root
+        creates: "{{ maven_install_dir }}/apache-maven-{{ maven_version }}/bin/mvn"
+
+    - name: Create symbolic link to Maven installation
+      ansible.builtin.file:
+        src: "{{ maven_install_dir }}/apache-maven-{{ maven_version }}"
+        dest: "{{ maven_install_dir }}/maven"
+        state: link
+        force: yes # Opdaterer linket, hvis det peger på en gammel version
+
+    - name: Setup Maven environment variables
+      ansible.builtin.template:
+        src: maven.sh.j2
+        dest: /etc/profile.d/maven.sh
+        mode: '0755'
+        owner: root
+        group: root
