@@ -1,0 +1,36 @@
+---
+- name: Tag backup af Proxmox VE noder
+  hosts: proxmox_hosts # Definer denne gruppe i din inventory-fil
+  gather_facts: false
+
+  vars:
+    # Definer dit backup-storage, som det er navngivet i Proxmox' 'Datacenter -> Storage'
+    backup_storage_name: "backup-nas"
+    # Definer mappen på dit backup-storage
+    backup_directory: "/mnt/e/pve_backup/{{ backup_storage_name }}/dump"
+
+  tasks:
+    - name: Hent liste over alle gæster (VMs og CTs)
+      ansible.builtin.shell: "qm list --full | awk 'NR>1 {print $1}' && pct list --full | awk 'NR>1 {print $1}'"
+      register: guest_ids
+      changed_when: false
+      warn: false # Undgå advarsel for brug af shell med pipes
+
+    - name: Udfør backup for hver gæst
+      ansible.builtin.shell: >
+        vzdump {{ item }}
+        --storage {{ backup_storage_name }}
+        --compress zstd
+        --mode snapshot
+        --quiet 1
+      loop: "{{ guest_ids.stdout_lines }}"
+      register: vzdump_result
+      changed_when: "'ERROR' not in vzdump_result.stdout"
+
+    - name: (Valgfri) Ryd op i gamle backups
+      ansible.builtin.shell: "find {{ backup_directory }} -type f -name '*.vma.zst' -mtime +14 -delete"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      when: backup_directory is defined
+      changed_when: true

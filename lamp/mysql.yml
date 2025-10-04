@@ -5,9 +5,9 @@
   tasks:
     - name: Install MySQL Server
       ansible.builtin.apt:
-        name: mysql-server
+        name: mariadb-server
         state: latest
     - name: Install MySQL Client
       ansible.builtin.apt:
-        name: mysql-client
+        name: mariadb-client
         state: latest

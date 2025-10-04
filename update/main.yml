@@ -31,3 +31,4 @@
           - locate
           - jq
           - nala
+          - dnsutils

@@ -1,11 +1,11 @@
 ---
-- name: Install PHP 8.3
+- name: Install PHP 8.2
   hosts: lamp
   become: true
   tasks:
-    - name: Install PHP 8.3
+    - name: Install PHP 8.2
       ansible.builtin.apt:
-        name: php8.3
+        name: php8.2
         state: latest
     - name: Connect PHP 8.x to Apache 2.x
       ansible.builtin.apt:

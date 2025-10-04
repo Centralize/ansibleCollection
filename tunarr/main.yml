@@ -1,0 +1,39 @@
+---
+- name: Deploy Tunarr with Docker
+  hosts: tunarr # ERSTAT: Med navnet på din host eller gruppe fra din inventory
+  become: true
+  vars:
+    tunarr_container_name: "tunarr"
+    tunarr_image: "tunarr/tunarr:latest"
+    tunarr_config_path: "/opt/tunarr/config" # ERSTAT: Stien på din host til Tunarr's konfiguration
+    tunarr_port: "8000"
+    app_timezone: "Europe/Copenhagen" # ERSTAT: Med din foretrukne tidszone
+
+  tasks:
+    - name: Ensure configuration directory exists
+      ansible.builtin.file:
+        path: "{{ tunarr_config_path }}"
+        state: directory
+        mode: '0755'
+        owner: '2000' # Ofte standard PUID
+        group: '2000' # Ofte standard PGID
+
+    - name: Pull the latest Tunarr Docker image
+      community.docker.docker_image:
+        name: "{{ tunarr_image }}"
+        source: pull
+
+    - name: Create and start Tunarr Docker container
+      community.docker.docker_container:
+        name: "{{ tunarr_container_name }}"
+        image: "{{ tunarr_image }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ tunarr_port }}:8000"
+        volumes:
+          - "{{ tunarr_config_path }}:/config"
+        env:
+          TZ: "{{ app_timezone }}"
+        labels:
+          deployment: "ansible"

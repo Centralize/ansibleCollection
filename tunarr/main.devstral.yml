@@ -1,0 +1,78 @@
+---
+- name: Deploy Tunarr
+  hosts: all
+  become: true
+  vars:
+    tunarr_port: 8080
+    tunarr_db_user: "tunarr"
+    tunarr_db_password: "{{ lookup('env', 'TUNARR_DB_PASSWORD') }}"
+    tunarr_admin_username: "admin"
+    tunarr_admin_password: "{{ lookup('env', 'TUNARR_ADMIN_PASSWORD') }}"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - unzip
+          - git
+        state: present
+
+    - name: Create tunarr user
+      user:
+        name: tunarr
+        createhome: no
+        shell: /usr/sbin/nologin
+
+    - name: Download and extract Tunarr
+      block:
+        - name: Get latest Tunarr release URL
+          command: curl -s https://api.github.com/repos/Tunngle/Tunarr/releases/latest | grep 'browser_download_url.*tar.gz' | awk '{print $2}' | tr -d '"'
+          register: tunarr_url
+
+        - name: Download Tunarr tarball
+          get_url:
+            url: "{{ tunarr_url.stdout }}"
+            dest: /tmp/tunarr.tar.gz
+
+        - name: Extract Tunarr to /opt/
+          unarchive:
+            src: /tmp/tunarr.tar.gz
+            dest: /opt/
+
+    - name: Set directory permissions
+      file:
+        path: /opt/tunarr
+        owner: tunarr
+        group: tunarr
+        recurse: yes
+
+    - name: Create systemd service for Tunarr
+      copy:
+        dest: /etc/systemd/system/tunarr.service
+        content: |
+          [Unit]
+          Description=Tunarr Service
+          After=network.target
+
+          [Service]
+          ExecStart=/opt/tunarr/bin/tunarr --port {{ tunarr_port }}
+          User=tunarr
+          Group=tunarr
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon and start Tunarr service
+      systemd:
+        state: started
+        enabled: yes
+        daemon_reload: yes
+        name: tunarr
+
+

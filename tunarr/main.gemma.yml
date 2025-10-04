@@ -1,0 +1,96 @@
+- name: Deploy Tunarr
+  hosts: all
+  become: true
+  vars:
+    tunarr_port: 8080
+    tunarr_admin_port: 8081
+    tunarr_db_user: "{{ lookup('env', 'DB_USER') | default('tunarr') }}"
+    tunarr_db_host: localhost
+    tunarr_db_name: tunarrdb
+    tunarr_admin_user: "{{ lookup('env', 'DB_USER') | default('tunarr') }}"  # Same user for admin and DB
+    tunarr_admin_password: "{{ lookup('env', 'DB_PASSWORD') | default('') }}" # Set password in environment variable
+    tunarr_db_password: "{{ lookup('env', 'DB_PASSWORD') | default('') }}" # Set password in environment variable
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - unzip
+          - postgresql-client  # Needed for TunarrDB (optional)
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Create tunarr user
+      user:
+        name: tunarr
+        system: yes
+        createhome: no # No home directory needed
+        shell: /usr/sbin/nologin
+      state: present
+
+
+    - name: Download Tunarr
+      get_url:
+        url: https://github.com/Tunngle/Tunarr/releases/latest/download/tunarr-latest.zip
+        dest: /tmp/tunarr.zip
+
+    - name: Extract Tunarr
+      unarchive:
+        src: /tmp/tunarr.zip
+        dest: /opt/
+        creates: /opt/tunarr*  # Avoid re-extraction if already extracted
+
+    - name: Create TunarrDB Database (Optional)
+      postgresql_db:
+        name: "{{ tunarr_db_name }}"
+        state: present
+        owner: "{{ tunarr_admin_user }}"
+        user: "{{ tunarr_admin_user }}"
+      when: tunarr_db_name is defined and tunarr_db_host is defined
+
+    - name: Create Tunarr Database (if it doesn't exist) # Only if DB creation fails.
+      postgresql_db:
+        name: "{{ tunarr_db_name }}"
+        state: present
+        owner: "{{ tunarr_admin_user }}"
+        user: "{{ tunarr_admin_user }}"
+      when: not lookup('pipe', 'psql -U {{ tunarr_admin_user }} -h {{ tunarr_db_host }} -c "SELECT 1;"') #Check if DB exists
+
+    - name: Configure Tunarr database connection
+      template:
+        src: tunarr.conf.j2
+        dest: /opt/tunarr/config/tunarr.conf
+        owner: tunarr
+        group: tunarr
+        mode: 0644
+      when: tunarr_db_name is defined and tunarr_db_host is defined
+
+
+
+    - name: Create Tunarr Admin User
+      user:
+        name: "{{ tunarr_admin_user }}"
+        system: yes
+        createhome: no
+        shell: /usr/sbin/nologin
+      state: present
+
+    - name:  Set environment variables for password
+      environment:
+       DB_USER: "{{ tunarr_db_user }}"
+       DB_PASSWORD: "{{ tunarr_db_password }}"
+      when: tunarr_db_name is defined and tunarr_db_host is defined
+
+
+    - name: Start Tunarr
+      systemd:
+        name: tunarr
+        state: started
+        enabled: yes
