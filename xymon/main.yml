@@ -1,30 +1,103 @@
 ---
-- name: Install and configure Xymon Server
-  hosts: xymon_servers
-  become: true
+- name: Deploy Xymon
+  hosts: all
+  become: yes
+  vars:
+    xymon_version: "4.3.30"
+    xymon_download_url: "https://sourceforge.net/projects/xymon/files/xymon/{{ xymon_version }}/xymon-{{ xymon_version }}.tar.gz/download"
+    xymon_install_dir: "/usr/local/xymon"
+    xymon_user: "xymon"
+    xymon_group: "xymon"
+
   tasks:
-    - name: Install prerequisites
-      ansible.builtin.apt:
-        pkg:
-        - apache2
-        - rrdtool
-        - librrd-dev
-        - libpcre3-dev
-        - libssl-dev
-        - ldap-utils
-        - libldap2-dev
-        - fping
-        update_cache: yes
-        state: latest
-    - name: Install Xymon-Server
-      ansible.builtin.apt:
-        name: "xymon"
-        update_cache: yes
-        state: latest
-    - name: Install Xymon-Client
-      ansible.builtin.apt:
-        pkg:
-          - xymon-client
-          - hobbit-plugins
-        update_cache: yes
-        state: latest
+    - name: Install required packages
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - gcc
+        - make
+        - zlib-devel
+        - openssl-devel
+        - rrdtool-devel
+
+    - name: Create Xymon user and group
+      group:
+        name: "{{ xymon_group }}"
+        state: present
+
+    - name: Create Xymon user
+      user:
+        name: "{{ xymon_user }}"
+        group: "{{ xymon_group }}"
+        state: present
+
+    - name: Download Xymon
+      get_url:
+        url: "{{ xymon_download_url }}"
+        dest: "/tmp/xymon-{{ xymon_version }}.tar.gz"
+        mode: '0644'
+
+    - name: Extract Xymon
+      unarchive:
+        src: "/tmp/xymon-{{ xymon_version }}.tar.gz"
+        dest: "/tmp"
+        remote_src: yes
+
+    - name: Configure Xymon
+      command: "./configure --prefix={{ xymon_install_dir }}"
+      args:
+        chdir: "/tmp/xymon-{{ xymon_version }}"
+
+    - name: Build Xymon
+      command: "make"
+      args:
+        chdir: "/tmp/xymon-{{ xymon_version }}"
+
+    - name: Install Xymon
+      command: "make install"
+      args:
+        chdir: "/tmp/xymon-{{ xymon_version }}"
+
+    - name: Create Xymon directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ xymon_user }}"
+        group: "{{ xymon_group }}"
+      loop:
+        - "{{ xymon_install_dir }}/www"
+        - "{{ xymon_install_dir }}/data"
+        - "{{ xymon_install_dir }}/logs"
+
+    - name: Copy Xymon configuration
+      template:
+        src: "xymon.cfg.j2"
+        dest: "{{ xymon_install_dir }}/etc/xymon.cfg"
+        owner: "{{ xymon_user }}"
+        group: "{{ xymon_group }}"
+        mode: '0644'
+
+    - name: Create Xymon service file
+      template:
+        src: "xymon.service.j2"
+        dest: "/etc/systemd/system/xymon.service"
+        mode: '0644'
+
+    - name: Enable and start Xymon service
+      systemd:
+        name: xymon
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Clean up temporary files
+      file:
+        path: "/tmp/xymon-{{ xymon_version }}"
+        state: absent
+
+    - name: Clean up downloaded archive
+      file:
+        path: "/tmp/xymon-{{ xymon_version }}.tar.gz"
+        state: absent
+

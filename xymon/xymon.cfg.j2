@@ -1,0 +1,14 @@
+[TCP]
+PORT = 1984
+
+[Paths]
+CFG     = {{ xymon_install_dir }}/etc
+WWW     = {{ xymon_install_dir }}/www
+LOGS    = {{ xymon_install_dir }}/logs
+DATA    = {{ xymon_install_dir }}/data
+
+[Web]
+ALLOW = *
+
+[Server]
+HOSTS = {{ xymon_install_dir }}/etc/hosts.cfg

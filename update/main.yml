@@ -20,6 +20,7 @@
         pkg:
           - mc
           - vim
+          - fail2ban
           - snapd
           - flatpak
           - unzip

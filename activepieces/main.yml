@@ -1,0 +1,69 @@
+---
+- name: Deploy latest ActivePieces (Official Method)
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    # We will clone the repo here
+    ap_deploy_dir: "/opt/activepieces"
+
+    # This is the public URL we need to set
+    ap_frontend_url: "http://{{ ansible_default_ipv4.address }}"
+
+    # Port to expose on the host
+    ap_expose_port: "80"
+
+  tasks:
+    - name: 1. Install prerequisites (Git, Docker SDK, Compose Plugin)
+      ansible.builtin.apt:
+        name:
+          - git
+          - python3-docker
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: 2. Clone the official ActivePieces repository
+      ansible.builtin.git:
+        repo: 'https://github.com/activepieces/activepieces.git'
+        dest: "{{ ap_deploy_dir }}"
+        version: 'main' # You can pin this to a specific release tag if preferred
+      
+    - name: 3. Run the official deploy script to generate .env
+      ansible.builtin.shell:
+        cmd: "sh tools/deploy.sh"
+        chdir: "{{ ap_deploy_dir }}"
+        creates: "{{ ap_deploy_dir }}/.env" # Makes this task idempotent
+      changed_when: false
+
+    # -----------------------------------------------------------------------
+    # At this point, the official docker-compose.yml and .env files
+    # exist and contain all the correct, auto-generated secrets.
+    # We just need to customize the port and URL.
+    # -----------------------------------------------------------------------
+
+    - name: 4. Ensure AP_FRONTEND_URL is set to the server's IP
+      ansible.builtin.lineinfile:
+        path: "{{ ap_deploy_dir }}/.env"
+        regexp: '^AP_FRONTEND_URL='
+        line: 'AP_FRONTEND_URL={{ ap_frontend_url }}'
+        
+    - name: 5. Ensure AP_TELEMETRY_ENABLED is false
+      ansible.builtin.lineinfile:
+        path: "{{ ap_deploy_dir }}/.env"
+        regexp: '^AP_TELEMETRY_ENABLED='
+        line: 'AP_TELEMETRY_ENABLED=false'
+        
+    - name: 6. Expose the correct host port (default is 8080)
+      ansible.builtin.replace:
+        path: "{{ ap_deploy_dir }}/docker-compose.yml"
+        regexp: '- "8080:80"'
+        replace: '- "{{ ap_expose_port }}:80"'
+
+    - name: 7. Start the ActivePieces stack using the generated files
+      community.docker.docker_compose_v2:
+        project_name: activepieces
+        project_src: "{{ ap_deploy_dir }}" # This will find the .env and yml
+        pull: "always"
+        state: present

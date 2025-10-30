@@ -1,0 +1,14 @@
+[Unit]
+Description=Xymon Monitoring Server
+After=network.target
+
+[Service]
+Type=forking
+User={{ xymon_user }}
+Group={{ xymon_group }}
+ExecStart={{ xymon_install_dir }}/server/bin/xymon.sh start
+ExecStop={{ xymon_install_dir }}/server/bin/xymon.sh stop
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
