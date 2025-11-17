@@ -1,0 +1,192 @@
+---
+- name: Deploy Excalidraw (Client + Room Backend)
+  hosts: excalidraw_servers
+  become: yes
+  vars:
+    # --- Konfigurerbare variabler ---
+    excalidraw_domain: "excalidraw.dit-domæne.com"
+    excalidraw_user: "excalidraw"
+    excalidraw_app_dir: "/opt/excalidraw"
+    excalidraw_room_dir: "/opt/excalidraw-room"
+    excalidraw_room_port: 5001
+    # --------------------------------
+
+  handlers:
+    - name: Genstart excalidraw-room
+      ansible.builtin.systemd:
+        name: excalidraw-room
+        state: restarted
+        daemon_reload: yes
+
+    - name: Genstart nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+
+  tasks:
+    - name: 1. Valider domænevariabel
+      ansible.builtin.assert:
+        that:
+          - excalidraw_domain != "excalidraw.dit-domæne.com"
+        msg: "Opdater venligst 'excalidraw_domain' variablen med et gyldigt domænenavn."
+      tags: [always]
+
+    - name: 2. Installer systemafhængigheder
+      ansible.builtin.apt:
+        name:
+          - git
+          - nginx
+          - nodejs
+          - npm
+        state: present
+        update_cache: yes
+
+    - name: 3. Opret systembruger til Excalidraw
+      ansible.builtin.user:
+        name: "{{ excalidraw_user }}"
+        shell: /bin/false
+        system: yes
+        create_home: no
+
+    # --- Sektion 4: Deployment af Excalidraw Client (Frontend) ---
+    - name: 4.1. Klon Excalidraw client repository
+      ansible.builtin.git:
+        repo: 'https://github.com/excalidraw/excalidraw.git'
+        dest: "{{ excalidraw_app_dir }}"
+        version: master
+        force: yes
+      register: git_client_result
+
+    - name: 4.2. Opret .env fil til client
+      ansible.builtin.copy:
+        dest: "{{ excalidraw_app_dir }}/.env"
+        content: |
+          REACT_APP_SOCKET_SERVER_URL=https://{{ excalidraw_domain }}
+          REACT_APP_BACKEND_V2_GET_URL=https://{{ excalidraw_domain }}/api/v2/get
+          REACT_APP_BACKEND_V2_POST_URL=https://{{ excalidraw_domain }}/api/v2/post
+      register: client_env_result
+
+    - name: 4.3. Installer client-afhængigheder (npm ci)
+      ansible.builtin.command:
+        cmd: npm ci
+        chdir: "{{ excalidraw_app_dir }}"
+      when: git_client_result.changed or client_env_result.changed
+
+    - name: 4.4. Byg Excalidraw client
+      ansible.builtin.command:
+        cmd: npm run build
+        chdir: "{{ excalidraw_app_dir }}"
+      when: git_client_result.changed or client_env_result.changed
+
+    # --- Sektion 5: Deployment af Excalidraw Room (Backend) ---
+    - name: 5.1. Klon Excalidraw-room repository
+      ansible.builtin.git:
+        repo: 'https://github.com/excalidraw/excalidraw-room.git'
+        dest: "{{ excalidraw_room_dir }}"
+        version: main
+        force: yes
+      register: git_room_result
+
+    - name: 5.2. Opret .env fil til room-backend
+      ansible.builtin.copy:
+        dest: "{{ excalidraw_room_dir }}/.env"
+        content: |
+          PORT={{ excalidraw_room_port }}
+      register: room_env_result
+
+    - name: 5.3. Installer backend-afhængigheder (npm ci)
+      ansible.builtin.command:
+        cmd: npm ci
+        chdir: "{{ excalidraw_room_dir }}"
+      when: git_room_result.changed or room_env_result.changed
+
+    - name: 5.4. Sæt korrekte rettigheder på applikationsmapper
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: "{{ excalidraw_user }}"
+        group: "{{ excalidraw_user }}"
+        recurse: yes
+      loop:
+        - "{{ excalidraw_app_dir }}"
+        - "{{ excalidraw_room_dir }}"
+
+    # --- Sektion 6: Konfiguration af Systemd Service ---
+    - name: 6.1. Opret systemd service unit til excalidraw-room
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/excalidraw-room.service
+        content: |
+          [Unit]
+          Description=Excalidraw Room Backend
+          After=network.target
+
+          [Service]
+          Type=simple
+          User={{ excalidraw_user }}
+          Group={{ excalidraw_user }}
+          WorkingDirectory={{ excalidraw_room_dir }}
+          Environment="NODE_ENV=production"
+          ExecStart=/usr/bin/node src/index.js
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Genstart excalidraw-room
+
+    - name: 6.2. Aktiver og start excalidraw-room servicen
+      ansible.builtin.systemd:
+        name: excalidraw-room
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    # --- Sektion 7: Konfiguration af Nginx Reverse Proxy ---
+    - name: 7.1. Opret Nginx konfiguration
+      ansible.builtin.copy:
+        dest: "/etc/nginx/sites-available/{{ excalidraw_domain }}"
+        content: |
+          server {
+              listen 80;
+              server_name {{ excalidraw_domain }};
+
+              # Note: HTTPS/SSL bør implementeres for produktion, f.eks. med Certbot.
+              # listen 443 ssl http2;
+              # ssl_certificate /etc/letsencrypt/live/{{ excalidraw_domain }}/fullchain.pem;
+              # ssl_certificate_key /etc/letsencrypt/live/{{ excalidraw_domain }}/privkey.pem;
+
+              root {{ excalidraw_app_dir }}/build;
+              index index.html;
+
+              # Håndter React client-side routing
+              location / {
+                  try_files $uri /index.html;
+              }
+
+              # Proxy API og WebSocket requests til backend
+              location ~ ^/(api/v2/|socket.io/|room/set-user) {
+                  proxy_pass http://127.0.0.1:{{ excalidraw_room_port }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  
+                  # Vigtigt for WebSocket support
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+          }
+      notify: Genstart nginx
+
+    - name: 7.2. Aktiver Nginx site
+      ansible.builtin.file:
+        src: "/etc/nginx/sites-available/{{ excalidraw_domain }}"
+        dest: "/etc/nginx/sites-enabled/{{ excalidraw_domain }}"
+        state: link
+      notify: Genstart nginx
+
+    - name: 7.3. Fjern Nginx default site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Genstart nginx
+...
