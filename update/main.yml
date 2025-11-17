@@ -33,3 +33,4 @@
           - jq
           - nala
           - dnsutils
+          - zsh
